@@ -7,12 +7,11 @@
  */
 package org.opensearch.tasks.service;
 
-import org.opensearch.action.search.SearchResponse;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.model.Task;
 import org.opensearch.tasks.repository.TaskRepository;
 
-import java.io.IOException;
-import java.util.Optional;
+import java.util.List;
 
 public class TaskService {
     private final TaskRepository taskRepository;
@@ -21,19 +20,19 @@ public class TaskService {
         this.taskRepository = taskRepository;
     }
 
-    public void createTask(Task task) throws IOException {
-        taskRepository.createTask(task);
+    public RestStatus createTask(Task task) {
+        return taskRepository.createTask(task);
     }
 
-    public Optional<Task> getTask(String id) throws IOException {
-        return Optional.ofNullable(taskRepository.getTask(id));
+    public Task getTaskById(String id) {
+        return taskRepository.getTaskById(id);
     }
 
-    public void deleteTask(String id) {
-        taskRepository.deleteTask(id);
+    public RestStatus deleteTask(String id) {
+        return taskRepository.deleteTask(id);
     }
 
-    public SearchResponse searchTasks(String query) {
+    public List<Task> searchTasks(String query) {
         return taskRepository.searchTasks(query);
     }
 }

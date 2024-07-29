@@ -8,20 +8,19 @@
 package org.opensearch.tasks.model;
 
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.Date;
+import java.util.List;
 
 public class Task {
     private String id;
     private String title;
+    private String description;
     private String status;
     private String assignee;
     private Date creationDate;
     private Date completionDate;
+    private List<String> tags;
+
 
     public String getId() {
         return id;
@@ -69,5 +68,21 @@ public class Task {
 
     public void setCompletionDate(Date completionDate) {
         this.completionDate = completionDate;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
     }
 }

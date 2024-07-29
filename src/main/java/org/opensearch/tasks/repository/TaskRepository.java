@@ -9,19 +9,18 @@ package org.opensearch.tasks.repository;
 
 import com.google.gson.Gson;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
-import org.opensearch.action.admin.indices.exists.indices.IndicesExistsRequest;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.get.GetResponse;
-import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.client.Client;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.client.Requests;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.tasks.model.Task;
 
 import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 public class TaskRepository {
     private final Client client;
@@ -31,38 +30,75 @@ public class TaskRepository {
 
     public TaskRepository(Client client) {
         this.client = client;
-        createIndexIfNotExists();
+        createIndex();
     }
 
-    private void createIndexIfNotExists() {
-        boolean indexExists = client.admin().indices().exists(new IndicesExistsRequest(INDEX)).actionGet().isExists();
-        if (!indexExists) {
-            client.admin().indices().create(new CreateIndexRequest(INDEX)).actionGet();
+    private void createIndex() {
+        try {
+            if (!client.admin().indices().prepareExists(INDEX).get().isExists()) {
+                CreateIndexRequest request = new CreateIndexRequest(INDEX);
+                CreateIndexResponse createIndexResponse = client.admin().indices().create(request).actionGet();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
-    public void createTask(Task task) throws IOException {
-        IndexRequest request = new IndexRequest(INDEX)
-        .id(task.getId())
-        .source(gson.toJson(task), XContentType.JSON);
-        client.index(request).actionGet();
+    public RestStatus createTask(Task task){
+        try {
+            XContentBuilder builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+            {
+                builder.field("title", task.getTitle());
+                builder.field("description", task.getDescription());
+                builder.field("status", task.getStatus());
+                builder.field("creationDate", task.getCreationDate());
+                builder.field("completionDate", task.getCompletionDate());
+                builder.field("assignee", task.getAssignee());
+                builder.field("tags", task.getTags());
+            }
+            builder.endObject();
+
+            return client.index(Requests.indexRequest(INDEX).id(task.getId()).source(builder)).actionGet().status();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return RestStatus.INTERNAL_SERVER_ERROR;
+        }
     }
 
-    public Task getTask(String id) throws IOException {
-        GetResponse response = client.prepareGet(INDEX, id).get();
-        return gson.fromJson(response.getSourceAsString(), Task.class);
+    public Task getTaskById(String id) {
+        try {
+            Map<String, Object> sourceAsMap = client.get(Requests.getRequest(INDEX).id(id)).actionGet().getSourceAsMap();
+            return convertMapToTask(sourceAsMap);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
-    public void deleteTask(String id) {
-        DeleteRequest request = new DeleteRequest(INDEX, id);
-        client.delete(request).actionGet();
+    public RestStatus updateTask(Task task) {
+        return createTask(task);  // Re-indexing the task
     }
 
-    public SearchResponse searchTasks(String query) {
-        SearchRequest searchRequest = new SearchRequest(INDEX);
-        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-        sourceBuilder.query(QueryBuilders.queryStringQuery(query));
-        searchRequest.source(sourceBuilder);
-        return client.search(searchRequest).actionGet();
+    public RestStatus deleteTask(String id) {
+        return client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
+    }
+
+    public List<Task> searchTasks(String query) {
+        // Implement search logic based on query and return a list of tasks
+        return null;
+    }
+
+    private Task convertMapToTask(Map<String, Object> sourceAsMap) {
+        Task task = new Task();
+        task.setId((String) sourceAsMap.get("id"));
+        task.setTitle((String) sourceAsMap.get("title"));
+        task.setDescription((String) sourceAsMap.get("description"));
+        task.setStatus((String) sourceAsMap.get("status"));
+        task.setCreationDate((Date) sourceAsMap.get("creationDate"));
+        task.setCompletionDate((Date) sourceAsMap.get("completionDate"));
+        task.setAssignee((String) sourceAsMap.get("assignee"));
+        task.setTags((List<String>) sourceAsMap.get("tags"));
+        return task;
     }
 }

@@ -7,7 +7,9 @@
  */
 package org.opensearch.tasks;
 
+import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
@@ -17,23 +19,26 @@ import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.tasks.controller.TaskController;
+import org.opensearch.tasks.repository.TaskRepository;
+import org.opensearch.tasks.service.TaskService;
 
 import java.util.List;
 import java.util.function.Supplier;
 
-import static java.util.Collections.singletonList;
-
 
 public class TasksPlugin extends Plugin implements ActionPlugin {
-    @Override
-    public List<RestHandler> getRestHandlers(final Settings settings,
-                                             final RestController restController,
-                                             final ClusterSettings clusterSettings,
-                                             final IndexScopedSettings indexScopedSettings,
-                                             final SettingsFilter settingsFilter,
-                                             final IndexNameExpressionResolver indexNameExpressionResolver,
-                                             final Supplier nodesInCluster) {
+    private TaskService taskService;
 
-        return singletonList(new TaskController());
+    public TasksPlugin(Client client) {
+        TaskRepository taskRepository = new TaskRepository(client);
+        this.taskService = new TaskService(taskRepository);
+    }
+
+    @Override
+    public List<RestHandler> getRestHandlers(Settings settings, RestController restController,
+                                             ClusterSettings clusterSettings, IndexScopedSettings indexScopedSettings,
+                                             SettingsFilter settingsFilter, IndexNameExpressionResolver indexNameExpressionResolver,
+                                             Supplier<DiscoveryNodes> nodesInCluster) {
+        return List.of(new TaskController(taskService));
     }
 }
