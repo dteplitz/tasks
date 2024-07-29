@@ -40,7 +40,7 @@ public class TaskRepository {
                 CreateIndexResponse createIndexResponse = client.admin().indices().create(request).actionGet();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
     }
 
@@ -61,7 +61,7 @@ public class TaskRepository {
 
             return client.index(Requests.indexRequest(INDEX).id(task.getId()).source(builder)).actionGet().status();
         } catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
             return RestStatus.INTERNAL_SERVER_ERROR;
         }
     }
@@ -71,7 +71,7 @@ public class TaskRepository {
             Map<String, Object> sourceAsMap = client.get(Requests.getRequest(INDEX).id(id)).actionGet().getSourceAsMap();
             return convertMapToTask(sourceAsMap);
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
             return null;
         }
     }
