@@ -5,7 +5,7 @@
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  */
-package org.opensearch.tasks.repository;
+package org.opensearch.tasks;
 
 import com.google.gson.Gson;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
@@ -15,7 +15,6 @@ import org.opensearch.client.Requests;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.tasks.model.Task;
 
 import java.io.IOException;
 import java.util.Date;
@@ -44,29 +43,29 @@ public class TaskRepository {
         }
     }
 
-    public RestStatus createTask(Task task){
+    public RestStatus createTask(Tasks tasks){
         try {
             XContentBuilder builder = XContentFactory.jsonBuilder();
             builder.startObject();
             {
-                builder.field("title", task.getTitle());
-                builder.field("description", task.getDescription());
-                builder.field("status", task.getStatus());
-                builder.field("creationDate", task.getCreationDate());
-                builder.field("completionDate", task.getCompletionDate());
-                builder.field("assignee", task.getAssignee());
-                builder.field("tags", task.getTags());
+                builder.field("title", tasks.getTitle());
+                builder.field("description", tasks.getDescription());
+                builder.field("status", tasks.getStatus());
+                builder.field("creationDate", tasks.getCreationDate());
+                builder.field("completionDate", tasks.getCompletionDate());
+                builder.field("assignee", tasks.getAssignee());
+                builder.field("tags", tasks.getTags());
             }
             builder.endObject();
 
-            return client.index(Requests.indexRequest(INDEX).id(task.getId()).source(builder)).actionGet().status();
+            return client.index(Requests.indexRequest(INDEX).id(tasks.getId()).source(builder)).actionGet().status();
         } catch (IOException e) {
             //e.printStackTrace();
             return RestStatus.INTERNAL_SERVER_ERROR;
         }
     }
 
-    public Task getTaskById(String id) {
+    public Tasks getTaskById(String id) {
         try {
             Map<String, Object> sourceAsMap = client.get(Requests.getRequest(INDEX).id(id)).actionGet().getSourceAsMap();
             return convertMapToTask(sourceAsMap);
@@ -76,29 +75,29 @@ public class TaskRepository {
         }
     }
 
-    public RestStatus updateTask(Task task) {
-        return createTask(task);  // Re-indexing the task
+    public RestStatus updateTask(Tasks tasks) {
+        return createTask(tasks);  // Re-indexing the task
     }
 
     public RestStatus deleteTask(String id) {
         return client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
     }
 
-    public List<Task> searchTasks(String query) {
+    public List<Tasks> searchTasks(String query) {
         // Implement search logic based on query and return a list of tasks
         return null;
     }
 
-    private Task convertMapToTask(Map<String, Object> sourceAsMap) {
-        Task task = new Task();
-        task.setId((String) sourceAsMap.get("id"));
-        task.setTitle((String) sourceAsMap.get("title"));
-        task.setDescription((String) sourceAsMap.get("description"));
-        task.setStatus((String) sourceAsMap.get("status"));
-        task.setCreationDate((Date) sourceAsMap.get("creationDate"));
-        task.setCompletionDate((Date) sourceAsMap.get("completionDate"));
-        task.setAssignee((String) sourceAsMap.get("assignee"));
-        task.setTags((List<String>) sourceAsMap.get("tags"));
-        return task;
+    private Tasks convertMapToTask(Map<String, Object> sourceAsMap) {
+        Tasks tasks = new Tasks();
+        tasks.setId((String) sourceAsMap.get("id"));
+        tasks.setTitle((String) sourceAsMap.get("title"));
+        tasks.setDescription((String) sourceAsMap.get("description"));
+        tasks.setStatus((String) sourceAsMap.get("status"));
+        tasks.setCreationDate((Date) sourceAsMap.get("creationDate"));
+        tasks.setCompletionDate((Date) sourceAsMap.get("completionDate"));
+        tasks.setAssignee((String) sourceAsMap.get("assignee"));
+        tasks.setTags((List<String>) sourceAsMap.get("tags"));
+        return tasks;
     }
 }

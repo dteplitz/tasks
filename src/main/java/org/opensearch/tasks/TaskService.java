@@ -5,11 +5,9 @@
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  */
-package org.opensearch.tasks.service;
+package org.opensearch.tasks;
 
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.tasks.model.Task;
-import org.opensearch.tasks.repository.TaskRepository;
 
 import java.util.List;
 
@@ -20,11 +18,11 @@ public class TaskService {
         this.taskRepository = taskRepository;
     }
 
-    public RestStatus createTask(Task task) {
-        return taskRepository.createTask(task);
+    public RestStatus createTask(Tasks tasks) {
+        return taskRepository.createTask(tasks);
     }
 
-    public Task getTaskById(String id) {
+    public Tasks getTaskById(String id) {
         return taskRepository.getTaskById(id);
     }
 
@@ -32,7 +30,9 @@ public class TaskService {
         return taskRepository.deleteTask(id);
     }
 
-    public List<Task> searchTasks(String query) {
+    public List<Tasks> searchTasks(String query) {
         return taskRepository.searchTasks(query);
     }
+
+    public RestStatus updateTask(Tasks task) { taskRepository.updateTask(task); return RestStatus.OK; }
 }

@@ -5,13 +5,13 @@
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  */
-package org.opensearch.tasks.model;
+package org.opensearch.tasks;
 
 
 import java.util.Date;
 import java.util.List;
 
-public class Task {
+public class Tasks {
     private String id;
     private String title;
     private String description;
