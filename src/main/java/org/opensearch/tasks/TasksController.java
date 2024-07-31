@@ -19,6 +19,7 @@ import org.opensearch.rest.RestRequest;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static org.opensearch.rest.RestRequest.Method.DELETE;
 import static org.opensearch.rest.RestRequest.Method.GET;
@@ -55,6 +56,10 @@ public class TasksController extends BaseRestHandler {
             case POST:
                 return channel -> {
                     Tasks task = parseRequestBody(request);
+                    if (task == null) {
+                        channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Invalid task data"));
+                        return;
+                    }
                     RestStatus status = tasksService.createTask(task);
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
                 };
@@ -65,10 +70,14 @@ public class TasksController extends BaseRestHandler {
                         if (task != null) {
                             channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(task)));
                         } else {
-                            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND,"",toJson(null)));
+                            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, "Task not found", String.valueOf(XContentType.JSON)));
                         }
                     } else {
                         String query = request.param("query");
+                        if (query == null) {
+                            channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Query parameter is missing"));
+                            return;
+                        }
                         List<Tasks> tasks = tasksService.searchTasks(query);
                         channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
                     }
@@ -76,11 +85,19 @@ public class TasksController extends BaseRestHandler {
             case PUT:
                 return channel -> {
                     Tasks task = parseRequestBody(request);
+                    if (task == null) {
+                        channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Invalid task data"));
+                        return;
+                    }
                     RestStatus status = tasksService.updateTask(task);
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
                 };
             case DELETE:
                 return channel -> {
+                    if (id == null) {
+                        channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Task ID is missing"));
+                        return;
+                    }
                     RestStatus status = tasksService.deleteTask(id);
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(null)));
                 };
@@ -90,36 +107,20 @@ public class TasksController extends BaseRestHandler {
     }
 
     private Tasks parseRequestBody(RestRequest request) throws IOException {
-        return request.contentParser().mapOrdered().entrySet().stream()
-                .collect(Tasks::new, (task, entry) -> {
-                    switch (entry.getKey()) {
-                        case "id":
-                            task.setId(entry.getValue().toString());
-                            break;
-                        case "title":
-                            task.setTitle(entry.getValue().toString());
-                            break;
-                        case "description":
-                            task.setDescription(entry.getValue().toString());
-                            break;
-                        case "status":
-                            task.setStatus(entry.getValue().toString());
-                            break;
-                        case "creationDate":
-                            task.setCreationDate(entry.getValue().toString());
-                            break;
-                        case "completionDate":
-                            task.setCompletionDate(entry.getValue().toString());
-                            break;
-                        case "assignee":
-                            task.setAssignee(entry.getValue().toString());
-                            break;
-                        case "tags":
-                            task.setTags((List<String>) entry.getValue());
-                            break;
-                    }
-                }, (task1, task2) -> {
-                });
+        if (request.hasContent() == false) {
+            return null;
+        }
+        Map<String, Object> map = request.contentParser().mapOrdered();
+        Tasks task = new Tasks();
+        task.setId((String) map.getOrDefault("id", null));
+        task.setTitle((String) map.getOrDefault("title", null));
+        task.setDescription((String) map.getOrDefault("description", null));
+        task.setStatus((String) map.getOrDefault("status", null));
+        task.setCreationDate((String) map.getOrDefault("creationDate", null));
+        task.setCompletionDate((String) map.getOrDefault("completionDate", null));
+        task.setAssignee((String) map.getOrDefault("assignee", null));
+        task.setTags((List<String>) map.getOrDefault("tags", null));
+        return task;
     }
 
     private String toJson(Object object) throws IOException {
