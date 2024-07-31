@@ -91,6 +91,8 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.8.9'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+    testImplementation 'org.mockito:mockito-core:3.12.4'
+    testImplementation 'org.mockito:mockito-junit-jupiter:3.12.4'
 }
 
 test {
@@ -139,4 +141,9 @@ opensearchplugin {
     classname = 'org.opensearch.tasks.TasksPlugin'
     licenseFile = rootProject.file('LICENSE.txt')
     noticeFile = rootProject.file('NOTICE.txt')
+}
+configurations.all {
+    resolutionStrategy {
+        force 'org.mockito:mockito-core:3.12.4'
+    }
 }

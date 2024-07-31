@@ -17,8 +17,8 @@ public class Tasks {
     private String description;
     private String status;
     private String assignee;
-    private Date creationDate;
-    private Date completionDate;
+    private String creationDate;
+    private String completionDate;
     private List<String> tags;
 
 
@@ -54,19 +54,19 @@ public class Tasks {
         this.assignee = assignee;
     }
 
-    public Date getCreationDate() {
+    public String getCreationDate() {
         return creationDate;
     }
 
-    public void setCreationDate(Date creationDate) {
+    public void setCreationDate(String creationDate) {
         this.creationDate = creationDate;
     }
 
-    public Date getCompletionDate() {
+    public String getCompletionDate() {
         return completionDate;
     }
 
-    public void setCompletionDate(Date completionDate) {
+    public void setCompletionDate(String completionDate) {
         this.completionDate = completionDate;
     }
 

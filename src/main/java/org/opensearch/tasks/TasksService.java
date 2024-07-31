@@ -11,28 +11,28 @@ import org.opensearch.core.rest.RestStatus;
 
 import java.util.List;
 
-public class TaskService {
-    private final TaskRepository taskRepository;
+public class TasksService {
+    private final TasksRepository tasksRepository;
 
-    public TaskService(TaskRepository taskRepository) {
-        this.taskRepository = taskRepository;
+    public TasksService(TasksRepository tasksRepository) {
+        this.tasksRepository = tasksRepository;
     }
 
     public RestStatus createTask(Tasks tasks) {
-        return taskRepository.createTask(tasks);
+        return tasksRepository.createTask(tasks);
     }
 
     public Tasks getTaskById(String id) {
-        return taskRepository.getTaskById(id);
+        return tasksRepository.getTaskById(id);
     }
 
     public RestStatus deleteTask(String id) {
-        return taskRepository.deleteTask(id);
+        return tasksRepository.deleteTask(id);
     }
 
     public List<Tasks> searchTasks(String query) {
-        return taskRepository.searchTasks(query);
+        return tasksRepository.searchTasks(query);
     }
 
-    public RestStatus updateTask(Tasks task) { taskRepository.updateTask(task); return RestStatus.OK; }
+    public RestStatus updateTask(Tasks task) { tasksRepository.updateTask(task); return RestStatus.OK; }
 }

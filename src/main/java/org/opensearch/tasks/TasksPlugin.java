@@ -35,7 +35,7 @@ import java.util.function.Supplier;
 
 
 public class TasksPlugin extends Plugin implements ActionPlugin {
-    private TaskService taskService;
+    private TasksService tasksService;
 
     @Override
     public Collection<Object> createComponents(
@@ -51,9 +51,9 @@ public class TasksPlugin extends Plugin implements ActionPlugin {
             IndexNameExpressionResolver indexNameExpressionResolver,
             Supplier<RepositoriesService> repositoriesServiceSupplier
     ) {
-        TaskRepository taskRepository = new TaskRepository(client);
-        this.taskService = new TaskService(taskRepository);
-        return Collections.singletonList(taskService);
+        TasksRepository tasksRepository = new TasksRepository(client);
+        this.tasksService = new TasksService(tasksRepository);
+        return Collections.singletonList(tasksService);
     }
 
 
@@ -62,6 +62,6 @@ public class TasksPlugin extends Plugin implements ActionPlugin {
                                              ClusterSettings clusterSettings, IndexScopedSettings indexScopedSettings,
                                              SettingsFilter settingsFilter, IndexNameExpressionResolver indexNameExpressionResolver,
                                              Supplier<DiscoveryNodes> nodesInCluster) {
-        return List.of(new TaskController(taskService));
+        return List.of(new TasksController(tasksService));
     }
 }

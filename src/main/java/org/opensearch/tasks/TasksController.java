@@ -25,11 +25,11 @@ import static org.opensearch.rest.RestRequest.Method.GET;
 import static org.opensearch.rest.RestRequest.Method.POST;
 import static org.opensearch.rest.RestRequest.Method.PUT;
 
-public class TaskController extends BaseRestHandler {
-    private final TaskService taskService;
+public class TasksController extends BaseRestHandler {
+    private final TasksService tasksService;
 
-    public TaskController(TaskService taskService) {
-        this.taskService = taskService;
+    public TasksController(TasksService tasksService) {
+        this.tasksService = tasksService;
     }
 
     @Override
@@ -55,13 +55,13 @@ public class TaskController extends BaseRestHandler {
             case POST:
                 return channel -> {
                     Tasks task = parseRequestBody(request);
-                    RestStatus status = taskService.createTask(task);
+                    RestStatus status = tasksService.createTask(task);
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
                 };
             case GET:
                 return channel -> {
                     if (id != null) {
-                        Tasks task = taskService.getTaskById(id);
+                        Tasks task = tasksService.getTaskById(id);
                         if (task != null) {
                             channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(task)));
                         } else {
@@ -69,19 +69,19 @@ public class TaskController extends BaseRestHandler {
                         }
                     } else {
                         String query = request.param("query");
-                        List<Tasks> tasks = taskService.searchTasks(query);
+                        List<Tasks> tasks = tasksService.searchTasks(query);
                         channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
                     }
                 };
             case PUT:
                 return channel -> {
                     Tasks task = parseRequestBody(request);
-                    RestStatus status = taskService.updateTask(task);
+                    RestStatus status = tasksService.updateTask(task);
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
                 };
             case DELETE:
                 return channel -> {
-                    RestStatus status = taskService.deleteTask(id);
+                    RestStatus status = tasksService.deleteTask(id);
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(null)));
                 };
             default:
@@ -106,10 +106,10 @@ public class TaskController extends BaseRestHandler {
                             task.setStatus(entry.getValue().toString());
                             break;
                         case "creationDate":
-                            task.setCreationDate(new Date(Long.parseLong(entry.getValue().toString())));
+                            task.setCreationDate(entry.getValue().toString());
                             break;
                         case "completionDate":
-                            task.setCompletionDate(new Date(Long.parseLong(entry.getValue().toString())));
+                            task.setCompletionDate(entry.getValue().toString());
                             break;
                         case "assignee":
                             task.setAssignee(entry.getValue().toString());
