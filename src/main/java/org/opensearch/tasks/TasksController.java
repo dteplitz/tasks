@@ -17,9 +17,9 @@ import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestRequest;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static org.opensearch.rest.RestRequest.Method.DELETE;
 import static org.opensearch.rest.RestRequest.Method.GET;
@@ -56,30 +56,46 @@ public class TasksController extends BaseRestHandler {
             case POST:
                 return channel -> {
                     Tasks task = parseRequestBody(request);
-                    if (task == null) {
-                        channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Invalid task data"));
-                        return;
-                    }
-                    RestStatus status = tasksService.createTask(task);
-                    channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
+                    CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task));
+                    future.thenAccept(status -> {
+                        try {
+                            channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
+                        } catch (IOException e) {
+                            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                        }
+                    });
                 };
             case GET:
                 return channel -> {
                     if (id != null) {
-                        Tasks task = tasksService.getTaskById(id);
-                        if (task != null) {
-                            channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(task)));
-                        } else {
-                            channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, "Task not found", String.valueOf(XContentType.JSON)));
-                        }
+                        CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
+                            Tasks task = tasksService.getTaskById(id);
+                            if (task != null) {
+                                try {
+                                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(task)));
+                                } catch (IOException e) {
+                                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                                }
+                            } else {
+                                try {
+                                    channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, String.valueOf(XContentType.JSON), toJson(null)));
+                                } catch (IOException e) {
+                                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                                }
+                            }
+                            return RestStatus.OK;
+                        });
                     } else {
                         String query = request.param("query");
-                        if (query == null) {
-                            channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Query parameter is missing"));
-                            return;
-                        }
-                        List<Tasks> tasks = tasksService.searchTasks(query);
-                        channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
+                        CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
+                            List<Tasks> tasks = tasksService.searchTasks(query);
+                            try {
+                                channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
+                            } catch (IOException e) {
+                                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                            }
+                            return RestStatus.OK;
+                        });
                     }
                 };
             case PUT:
