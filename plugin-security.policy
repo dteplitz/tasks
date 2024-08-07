@@ -1,0 +1,11 @@
+grant {
+    // Allow read, write, and delete access to the directory and its contents
+    permission java.io.FilePermission "D:/Stuff/Wazuh/tasks/build/testclusters/integTest-0/data/nodes/0/indices/-", "read,write,delete";
+
+    // General permissions for networking, properties, and reflection
+    permission java.net.SocketPermission "*", "connect,accept";
+    permission java.util.PropertyPermission "*", "read,write";
+    permission java.lang.RuntimePermission "modifyThread";
+    permission java.lang.RuntimePermission "getClassLoader";
+    permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+};

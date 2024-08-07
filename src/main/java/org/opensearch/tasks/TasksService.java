@@ -7,19 +7,24 @@
  */
 package org.opensearch.tasks;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.core.rest.RestStatus;
 
 import java.util.List;
 
 public class TasksService {
     private final TasksRepository tasksRepository;
-
+    private static final Logger log = LogManager.getLogger(TasksService.class);
     public TasksService(TasksRepository tasksRepository) {
         this.tasksRepository = tasksRepository;
     }
 
     public RestStatus createTask(Tasks tasks) {
-        return tasksRepository.createTask(tasks);
+        log.info("Creating task {}", tasks);
+        RestStatus result = tasksRepository.createTask(tasks);
+        log.info("Task creating result {}", result);
+        return result;
     }
 
     public Tasks getTaskById(String id) {

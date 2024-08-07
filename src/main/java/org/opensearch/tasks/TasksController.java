@@ -7,6 +7,9 @@
  */
 package org.opensearch.tasks;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.lucene.util.NamedThreadFactory;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
@@ -20,6 +23,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.opensearch.rest.RestRequest.Method.DELETE;
 import static org.opensearch.rest.RestRequest.Method.GET;
@@ -28,9 +33,13 @@ import static org.opensearch.rest.RestRequest.Method.PUT;
 
 public class TasksController extends BaseRestHandler {
     private final TasksService tasksService;
+    private final ExecutorService executor;
 
+    private static final Logger log = LogManager.getLogger(TasksController.class);
     public TasksController(TasksService tasksService) {
         this.tasksService = tasksService;
+        this.executor = Executors.newFixedThreadPool(10, new NamedThreadFactory("TasksControllerThread"));
+
     }
 
     @Override
@@ -41,28 +50,41 @@ public class TasksController extends BaseRestHandler {
     @Override
     public List<Route> routes() {
         return List.of(
-                new Route(POST, "/tasks"),
-                new Route(GET, "/tasks/{id}"),
-                new Route(PUT, "/tasks/{id}"),
-                new Route(DELETE, "/tasks/{id}"),
-                new Route(GET, "/tasks/search")
+                new Route(POST, "/_plugins/tasks"),
+                new Route(GET, "/_plugins/tasks/{id}"),
+                new Route(PUT, "/_plugins/tasks/{id}"),
+                new Route(DELETE, "/_plugins/tasks/{id}"),
+                new Route(GET, "/_plugins/tasks/search")
         );
     }
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
+        log.info("---------Starting prepareRequest {} -- {}--------------",request.param("id"), request.method());
         String id = request.param("id");
+
         switch (request.method()) {
             case POST:
                 return channel -> {
                     Tasks task = parseRequestBody(request);
-                    CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task));
+                    log.info("---------Task: {} ------------",task);
+                    CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task), executor);
+                    log.info("Future created, waiting accept");
                     future.thenAccept(status -> {
                         try {
+                            log.info("Try future status");
                             channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
+                            log.info("Channel response sent");
                         } catch (IOException e) {
+                            log.info("Error future status");
                             channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                            log.info("Error is {}",e.getMessage());
                         }
+                    });
+                    future.exceptionally(ex -> {
+                        log.error("Error processing request", ex);
+                        channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
+                        return null;
                     });
                 };
             case GET:

@@ -4,6 +4,10 @@ FROM opensearchproject/opensearch:2.14.0
 # Switch to root user to perform setup
 USER root
 
+ENV discovery.type=single-node
+ENV OPENSEARCH_JAVA_OPTS="-Xms512m -Xmx512m"
+ENV DISABLE_SECURITY_PLUGIN=true
+
 # Create the plugins directory if it doesn't exist and another directory to place the zip file
 RUN mkdir -p /usr/share/opensearch/external-plugins
 

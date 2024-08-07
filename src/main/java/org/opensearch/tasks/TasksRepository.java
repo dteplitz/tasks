@@ -8,6 +8,8 @@
 package org.opensearch.tasks;
 
 import com.google.gson.Gson;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.get.GetRequest;
@@ -21,6 +23,7 @@ import org.opensearch.client.Requests;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -37,7 +40,7 @@ import java.util.Map;
 public class TasksRepository {
     private final Client client;
     private final Gson gson = new Gson();
-
+    private static final Logger log = LogManager.getLogger(TasksRepository.class);
     private static final String INDEX = "tasks";
 
     public TasksRepository(Client client) {
@@ -47,9 +50,21 @@ public class TasksRepository {
 
     private void createIndex() {
         try {
+            log.info("Creating index");
             if (!client.admin().indices().prepareExists(INDEX).get().isExists()) {
                 CreateIndexRequest request = new CreateIndexRequest(INDEX);
                 CreateIndexResponse createIndexResponse = client.admin().indices().create(request).actionGet();
+                log.info("Index created ok - {}", createIndexResponse);
+                /*client.admin()
+                        .indices()
+                        .create(request, ActionListener.wrap(response -> listener.onResponse(response.isAcknowledged()), exception -> {
+                            if (exception instanceof ResourceAlreadyExistsException
+                                    || exception.getCause() instanceof ResourceAlreadyExistsException) {
+                                listener.onResponse(true);
+                            } else {
+                                listener.onFailure(exception);
+                            }
+                        }));*/
             }
         } catch (Exception e) {
             //e.printStackTrace();
@@ -58,6 +73,7 @@ public class TasksRepository {
 
     public RestStatus createTask(Tasks tasks) {
         try {
+            log.info("Creating task {}", tasks);
             Map<String, Object> taskMap = new HashMap<>();
             taskMap.put("title", tasks.getTitle());
             taskMap.put("description", tasks.getDescription());
@@ -66,12 +82,14 @@ public class TasksRepository {
             taskMap.put("completionDate", tasks.getCompletionDate());
             taskMap.put("assignee", tasks.getAssignee());
             taskMap.put("tags", tasks.getTags());
-
+            log.info("Task mapped {}", taskMap);
             IndexRequest indexRequest = Requests.indexRequest(INDEX)
                     .id(tasks.getId())
                     .source(taskMap, XContentType.JSON);
-
-            return client.index(indexRequest).actionGet().status();
+            log.info("Creating indexRequest {}", indexRequest);
+            RestStatus result = client.index(indexRequest).actionGet().status();
+            log.info("Result creating task {}", result);
+            return result;
         } catch (Exception e) {
             //e.printStackTrace();
             return RestStatus.INTERNAL_SERVER_ERROR;
