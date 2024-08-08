@@ -12,27 +12,21 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
-import org.opensearch.action.get.GetRequest;
-import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
-import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Requests;
 import org.opensearch.common.action.ActionFuture;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.mapper.ObjectMapper;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +49,7 @@ public class TasksRepository {
                 CreateIndexRequest request = new CreateIndexRequest(INDEX);
                 CreateIndexResponse createIndexResponse = client.admin().indices().create(request).actionGet();
                 log.info("Index created ok - {}", createIndexResponse);
+                //todo me hicieron comentario de crear indice con formato de una
                 /*client.admin()
                         .indices()
                         .create(request, ActionListener.wrap(response -> listener.onResponse(response.isAcknowledged()), exception -> {
@@ -114,24 +109,39 @@ public class TasksRepository {
         return client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
     }
 
-    public List<Tasks> searchTasks(String query) {
-        List<Tasks> tasksList = new ArrayList<>();
-        try {
-            SearchRequest searchRequest = new SearchRequest(INDEX);
-            SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
-            sourceBuilder.query(QueryBuilders.queryStringQuery(query));
-            searchRequest.source(sourceBuilder);
-
-            ActionFuture<SearchResponse> future = client.search(searchRequest);
-            SearchResponse searchResponse = future.actionGet();
-            for (SearchHit hit : searchResponse.getHits()) {
-                Map<String, Object> sourceAsMap = hit.getSourceAsMap();
-                tasksList.add(convertMapToTask(sourceAsMap));
-            }
-        } catch (Exception e) {
-            //e.printStackTrace();
+    public List<Tasks> searchTasks(Map<String, String> params) {
+        log.info("---------Search tasks. Building query------------");
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        log.info("---------Adding filters to query------------");
+        // Add "is" filters to the query
+        if (params.containsKey("statusIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("status", params.get("statusIs")));
+            log.info("---------Status filter added {}------------",params.get("statusIs"));
         }
-        return tasksList;
+        if (params.containsKey("assigneeIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("assignee", params.get("assigneeIs")));
+            log.info("---------Asignee filter added {}------------",params.get("assigneeIs"));
+        }
+        if (params.containsKey("creationDateIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("creationDate", params.get("creationDateIs")));
+            log.info("---------CreationDate filter added {}------------",params.get("creationDateIs"));
+        }
+        if (params.containsKey("completionDateIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("completionDate", params.get("completionDateIs")));
+            log.info("---------CompletionDate filter added {}------------",params.get("completionDateIs"));
+        }
+        log.info("---------Filters added------------");
+        log.info("---------Creating request------------");
+        SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+        sourceBuilder.query(boolQuery);
+        //todo create constants for tasks index and params abled and everything
+        SearchRequest searchRequest = new SearchRequest("tasks"); // Use your index name here
+        searchRequest.source(sourceBuilder);
+        log.info("---------Request created------------");
+        log.info("---------Executing search------------");
+        List<Tasks> result = executeSearch(searchRequest);
+        log.info("---------Tasks found {}------------",result);
+        return result;
     }
 
     private Tasks convertMapToTask(Map<String, Object> sourceAsMap) {
@@ -145,5 +155,18 @@ public class TasksRepository {
         tasks.setAssignee((String) sourceAsMap.getOrDefault("assignee", null));
         tasks.setTags((List<String>) sourceAsMap.getOrDefault("tags", null));
         return tasks;
+    }
+    private List<Tasks> executeSearch(SearchRequest searchRequest) {
+        List<Tasks> tasksList = new ArrayList<>();
+        try {
+            SearchResponse response = client.search(searchRequest).actionGet();
+            for (SearchHit hit : response.getHits()) {
+                Tasks task = convertMapToTask(hit.getSourceAsMap());
+                tasksList.add(task);
+            }
+        } catch (Exception e) {
+            //e.printStackTrace();
+        }
+        return tasksList;
     }
 }

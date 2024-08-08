@@ -41,6 +41,8 @@ public class TasksController extends BaseRestHandler {
         this.executor = Executors.newFixedThreadPool(10, new NamedThreadFactory("TasksControllerThread"));
 
     }
+    //todo move files to folders insted everything in the same folder
+    //todo specifications of apis
 
     @Override
     public String getName() {
@@ -54,14 +56,31 @@ public class TasksController extends BaseRestHandler {
                 new Route(GET, "/_plugins/tasks/{id}"),
                 new Route(PUT, "/_plugins/tasks/{id}"),
                 new Route(DELETE, "/_plugins/tasks/{id}"),
-                new Route(GET, "/_plugins/tasks/search")
+                new Route(GET, "/_plugins/tasks")
         );
     }
+/*
+These users would like to be able to know:
+
+- The tasks they have already done.
+- The tasks they have left to do.
+- When they have completed a task, or when they plan to execute it.
+
+They would also like to be able to search for tasks, for example by the text they contain,
+or by a list of tags. Each task can be in different states, such as planned, successfully
+executed, or executed with error.
+
+- Read the `Task` items.
+- Create new `Task` items and persist them (in an OpenSearch index).
+- Set `Task` items as completed.
+- Delete `Task` items.
+- Search `Task` items.
+ */
+
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        log.info("---------Starting prepareRequest {} -- {}--------------",request.param("id"), request.method());
-        String id = request.param("id");
+        log.info("---------Starting prepareRequest {} -- {} -- {}--------------",request.param("id"), request.method(), request.params());
 
         switch (request.method()) {
             case POST:
@@ -88,33 +107,55 @@ public class TasksController extends BaseRestHandler {
                     });
                 };
             case GET:
+                log.info("---------Starting GET ------------");
                 return channel -> {
-                    if (id != null) {
+                    log.info("---------Channel started ------------");
+                    if (request.hasParam("id")) {
+                        String id = request.param("id");
+                        log.info("---------Getting task for id: {} ------------",id);
                         CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
+                            log.info("---------Starting future get ------------");
                             Tasks task = tasksService.getTaskById(id);
+                            log.info("---------Task is {} ------------",task);
                             if (task != null) {
                                 try {
+                                    log.info("---------Task is not null. Returning task ------------");
                                     channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(task)));
+                                    log.info("---------Task returned ------------");
                                 } catch (IOException e) {
+                                    log.info("---------Send response failed with error {}------------",e.getMessage());
                                     channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                                    log.info("---------Send response failed. Returning Internal server error------------");
                                 }
                             } else {
                                 try {
+                                    log.info("---------Task is null. Returning not found ------------");
                                     channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, String.valueOf(XContentType.JSON), toJson(null)));
+                                    log.info("---------Not found returned ------------");
                                 } catch (IOException e) {
+                                    log.info("---------Send response failed with error {}------------",e.getMessage());
                                     channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                                    log.info("---------Send response failed. Returning Internal server error------------");
                                 }
                             }
                             return RestStatus.OK;
                         });
                     } else {
-                        String query = request.param("query");
+                        log.info("---------Getting task with params------------");
+                        Map<String, String> params = request.params();
+                        log.info("---------Params: {} ------------",params);
                         CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
-                            List<Tasks> tasks = tasksService.searchTasks(query);
+                            log.info("---------Searching tasks with params ------------");
+                            List<Tasks> tasks = tasksService.searchTasks(params);
+                            log.info("---------Tasks found {} ------------",tasks);
                             try {
+                                log.info("--------- Returning tasks response ------------");
                                 channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
+                                log.info("--------- Tasks response sent ------------");
                             } catch (IOException e) {
+                                log.info("---------Send response failed with error {}------------",e.getMessage());
                                 channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                                log.info("---------Send response failed. Returning Internal server error------------");
                             }
                             return RestStatus.OK;
                         });
@@ -131,6 +172,7 @@ public class TasksController extends BaseRestHandler {
                     channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
                 };
             case DELETE:
+                String id = request.param("id");
                 return channel -> {
                     if (id == null) {
                         channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Task ID is missing"));

@@ -8,7 +8,6 @@
 package org.opensearch.tasks;
 
 
-import java.util.Date;
 import java.util.List;
 
 public class Tasks {
@@ -20,7 +19,6 @@ public class Tasks {
     private String creationDate;
     private String completionDate;
     private List<String> tags;
-
 
     public String getId() {
         return id;
