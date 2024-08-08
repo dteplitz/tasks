@@ -37,15 +37,15 @@ public class TasksService {
         return tasksRepository.deleteTask(id);
     }
 
-    public List<Tasks> searchTasks(Map<String, String> params) {
+    public List<Tasks> searchTasks(Map<String, Object> body) {
         log.info("---------Searching tasks------------");
-        List<Tasks> tasksList = tasksRepository.searchTasks(params);
+        List<Tasks> tasksList = tasksRepository.searchTasks(body);
         log.info("---------Tasks found {}------------",tasksList);
         log.info("---------Filtering tasks found with params------------");
         List<Tasks> tasksResponse = tasksList.stream()
-                .filter(task -> params.containsKey("tagContains") ? task.getTags().contains(params.get("tagContains")) : true)
-                .filter(task -> params.containsKey("titleContains") ? task.getTitle().contains(params.get("titleContains")) : true)
-                .filter(task -> params.containsKey("descriptionContains") ? task.getDescription().contains(params.get("descriptionContains")) : true)
+                .filter(task -> body.containsKey("tagContains") ? task.getTags().contains(body.get("tagContains").toString()) : true)
+                .filter(task -> body.containsKey("titleContains") ? task.getTitle().contains(body.get("titleContains").toString()) : true)
+                .filter(task -> body.containsKey("descriptionContains") ? task.getDescription().contains(body.get("descriptionContains").toString()) : true)
                 .collect(Collectors.toList());
         log.info("---------Tasks filtered {}------------",tasksResponse);
         return tasksResponse;

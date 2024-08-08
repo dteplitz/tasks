@@ -17,10 +17,8 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
 import org.opensearch.client.Requests;
-import org.opensearch.common.action.ActionFuture;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.index.mapper.ObjectMapper;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
@@ -109,26 +107,26 @@ public class TasksRepository {
         return client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
     }
 
-    public List<Tasks> searchTasks(Map<String, String> params) {
+    public List<Tasks> searchTasks(Map<String, Object> body) {
         log.info("---------Search tasks. Building query------------");
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
         log.info("---------Adding filters to query------------");
         // Add "is" filters to the query
-        if (params.containsKey("statusIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("status", params.get("statusIs")));
-            log.info("---------Status filter added {}------------",params.get("statusIs"));
+        if (body.containsKey("statusIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("status", body.get("statusIs")));
+            log.info("---------Status filter added {}------------",body.get("statusIs"));
         }
-        if (params.containsKey("assigneeIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("assignee", params.get("assigneeIs")));
-            log.info("---------Asignee filter added {}------------",params.get("assigneeIs"));
+        if (body.containsKey("assigneeIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("assignee", body.get("assigneeIs")));
+            log.info("---------Asignee filter added {}------------",body.get("assigneeIs"));
         }
-        if (params.containsKey("creationDateIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("creationDate", params.get("creationDateIs")));
-            log.info("---------CreationDate filter added {}------------",params.get("creationDateIs"));
+        if (body.containsKey("creationDateIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("creationDate", body.get("creationDateIs")));
+            log.info("---------CreationDate filter added {}------------",body.get("creationDateIs"));
         }
-        if (params.containsKey("completionDateIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("completionDate", params.get("completionDateIs")));
-            log.info("---------CompletionDate filter added {}------------",params.get("completionDateIs"));
+        if (body.containsKey("completionDateIs")) {
+            boolQuery.must(QueryBuilders.matchQuery("completionDate", body.get("completionDateIs")));
+            log.info("---------CompletionDate filter added {}------------",body.get("completionDateIs"));
         }
         log.info("---------Filters added------------");
         log.info("---------Creating request------------");

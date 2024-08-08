@@ -142,11 +142,11 @@ executed, or executed with error.
                         });
                     } else {
                         log.info("---------Getting task with params------------");
-                        Map<String, String> params = request.params();
-                        log.info("---------Params: {} ------------",params);
+                        Map<String,Object> body = request.contentParser().mapOrdered();
+                        log.info("---------Params: {} ------------",body.toString());
                         CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
                             log.info("---------Searching tasks with params ------------");
-                            List<Tasks> tasks = tasksService.searchTasks(params);
+                            List<Tasks> tasks = tasksService.searchTasks(body);
                             log.info("---------Tasks found {} ------------",tasks);
                             try {
                                 log.info("--------- Returning tasks response ------------");
