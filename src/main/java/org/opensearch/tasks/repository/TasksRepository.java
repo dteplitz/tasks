@@ -5,7 +5,7 @@
  * this file be licensed under the Apache-2.0 license or a
  * compatible open source license.
  */
-package org.opensearch.tasks;
+package org.opensearch.tasks.repository;
 
 import com.google.gson.Gson;
 import org.apache.logging.log4j.LogManager;
@@ -23,6 +23,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.tasks.model.Tasks;
 
 import java.util.ArrayList;
 import java.util.HashMap;

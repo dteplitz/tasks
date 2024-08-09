@@ -25,6 +25,9 @@ import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptService;
+import org.opensearch.tasks.controller.TasksController;
+import org.opensearch.tasks.repository.TasksRepository;
+import org.opensearch.tasks.service.TasksService;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
