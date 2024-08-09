@@ -7,6 +7,7 @@
  */
 package org.opensearch.tasks;
 
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.tests.util.LuceneTestCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,17 +20,26 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
 import org.opensearch.client.IndicesAdminClient;
 import org.opensearch.common.action.ActionFuture;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.repository.TasksRepository;
 
+import java.io.IOException;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -105,10 +115,10 @@ public class TasksRepositoryTests extends LuceneTestCase {
         when(client.get(any())).thenReturn(actionFuture);
         when(actionFuture.actionGet()).thenReturn(getResponse);
         when(getResponse.getSourceAsMap()).thenReturn(sourceAsMap);
+        when(getResponse.getId()).thenReturn(taskId);
 
-        assertEquals("1","1");
         // Call the method
-        /*Tasks task = tasksRepository.getTaskById(taskId);
+        Tasks task = tasksRepository.getTaskById(taskId);
 
         // Verify and assert
         assertNotNull(task);
@@ -117,14 +127,13 @@ public class TasksRepositoryTests extends LuceneTestCase {
         assertEquals("This is a sample task", task.getDescription());
         assertEquals("open", task.getStatus());
         assertEquals("user1", task.getAssignee());
-        assertEquals(Arrays.asList("tag1", "tag2"), task.getTags());*/
+        assertEquals(Arrays.asList("tag1", "tag2"), task.getTags());
     }
 
-    /*@Test
+    @Test
     public void testCreateTask() throws Exception {
         // Create a sample task
         Tasks task = new Tasks();
-        //task.setId("1");
         task.setTitle("Sample Task");
         task.setDescription("This is a sample task");
         task.setStatus("open");
@@ -143,9 +152,9 @@ public class TasksRepositoryTests extends LuceneTestCase {
 
         // Verify and assert
         assertEquals(RestStatus.CREATED, response.status());
-    }*/
+    }
 
-    /*@Test
+    @Test
     public void testUpdateTask() {
         // Create a sample task
         Tasks task = new Tasks();
@@ -168,9 +177,9 @@ public class TasksRepositoryTests extends LuceneTestCase {
 
         // Verify and assert
         assertEquals(RestStatus.OK, indexResponse.status());
-    }*/
+    }
 
-    /*@Test
+    @Test
     public void testDeleteTask() {
         // Mock the delete response
         when(client.delete(any(DeleteRequest.class))).thenReturn(deleteActionFuture);
@@ -182,54 +191,6 @@ public class TasksRepositoryTests extends LuceneTestCase {
 
         // Verify and assert
         assertEquals(RestStatus.OK, status);
-    }*/
-
-    /*@Test
-    public void testSearchTasks() throws IOException {
-        String query = "sample";
-
-        // Create a sample task as a map
-        Map<String, Object> sourceAsMap = new HashMap<>();
-        sourceAsMap.put("id", "1");
-        sourceAsMap.put("title", "Sample Task");
-        sourceAsMap.put("description", "This is a sample task");
-        sourceAsMap.put("status", "open");
-        sourceAsMap.put("creationDate", (new Date()).toString());
-        sourceAsMap.put("completionDate", null);
-        sourceAsMap.put("assignee", "user1");
-        sourceAsMap.put("tags", Arrays.asList("tag1", "tag2"));
-
-        // Use XContentBuilder to create the source for the SearchHit
-        XContentBuilder builder = XContentFactory.jsonBuilder();
-        builder.startObject();
-        for (Map.Entry<String, Object> entry : sourceAsMap.entrySet()) {
-            builder.field(entry.getKey(), entry.getValue());
-        }
-        builder.endObject();
-        BytesReference bytes = BytesReference.bytes(builder);
-
-        SearchHit searchHit = new SearchHit(1);
-        searchHit.sourceRef(bytes);
-
-        TotalHits totalHits = new TotalHits(1, TotalHits.Relation.EQUAL_TO);
-        SearchHits searchHits = new SearchHits(new SearchHit[]{searchHit}, totalHits, 1.0f);
-        when(searchResponse.getHits()).thenReturn(searchHits);
-
-        // Mock the search response
-        when(client.search(any(SearchRequest.class))).thenReturn(searchActionFuture);
-        when(searchActionFuture.actionGet()).thenReturn(searchResponse);
-
-        // Call the method
-        List<Tasks> tasksList = tasksRepository.searchTasks(query);
-
-        // Verify and assert
-        assertEquals(1, tasksList.size());
-        Tasks task = tasksList.get(0);
-        assertEquals("1", task.getId());
-        assertEquals("Sample Task", task.getTitle());
-        assertEquals("This is a sample task", task.getDescription());
-        assertEquals("open", task.getStatus());
-        assertEquals("user1", task.getAssignee());
-        assertEquals(Arrays.asList("tag1", "tag2"), task.getTags());
-    }*/
+    }
+    //todo create tests for other methods and basic errors
 }
