@@ -44,12 +44,13 @@ public class TasksRepository {
     }
 
     private void createIndex() {
-        log.info("Creating index");
-        if (!client.admin().indices().prepareExists(INDEX).get().isExists()) {
-            CreateIndexRequest request = new CreateIndexRequest(INDEX);
-            CreateIndexResponse createIndexResponse = client.admin().indices().create(request).actionGet();
-            log.info("Index created ok - {}", createIndexResponse);
-            //todo me hicieron comentario de crear indice con formato de una
+        try {
+            log.info("Creating index");
+            if (!client.admin().indices().prepareExists(INDEX).get().isExists()) {
+                CreateIndexRequest request = new CreateIndexRequest(INDEX);
+                CreateIndexResponse createIndexResponse = client.admin().indices().create(request).actionGet();
+                log.info("Index created ok - {}", createIndexResponse);
+                //todo me hicieron comentario de crear indice con formato de una
                 /*client.admin()
                         .indices()
                         .create(request, ActionListener.wrap(response -> listener.onResponse(response.isAcknowledged()), exception -> {
@@ -60,6 +61,9 @@ public class TasksRepository {
                                 listener.onFailure(exception);
                             }
                         }));*/
+            }
+        } catch (Exception e) {
+            log.info("Error while creating index {}",e.getMessage());
         }
     }
 

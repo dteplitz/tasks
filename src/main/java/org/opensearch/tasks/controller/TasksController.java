@@ -90,7 +90,7 @@ public class TasksController extends BaseRestHandler {
                     patchRequestHandle(channel, request);
                 };
             default:
-                return this::defaultRequestHandle;
+                return channel -> defaultRequestHandle(channel);
         }
     }
 
@@ -139,7 +139,12 @@ public class TasksController extends BaseRestHandler {
         log.info("Future created, waiting accept");
         future.thenAccept(status -> {
             log.info("Try future status");
-            channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
+            if(status == RestStatus.CREATED){
+                channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
+            }
+            else{
+                channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), ""));
+            }
             log.info("Channel response sent");
 
         });

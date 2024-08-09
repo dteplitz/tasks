@@ -81,12 +81,12 @@ public class TasksService {
         log.info("Updating task {}", task);
         if (task.getId() == null) {
             log.info("Id cannot be null to update {}", task.getId());
-            return null;
+            return RestStatus.BAD_REQUEST;
         }
         Tasks taskToUpdate = tasksRepository.getTaskById(task.getId());
         if (taskToUpdate == null) {
             log.info("Task not found to update {}", task.getId());
-            return null;
+            return RestStatus.NOT_FOUND;
         }
         IndexResponse taskUpdated = tasksRepository.updateTask(task);
         log.info("Update task process with status {}", taskUpdated);
