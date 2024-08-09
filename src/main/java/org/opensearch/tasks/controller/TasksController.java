@@ -227,28 +227,48 @@ executed, or executed with error.
         //check if search
         //      search with params
         //create
-        String path = request.path();
-        log.info("---------Post path: {} ------------",path);
-        Tasks task = parseRequestBody(request);
-        log.info("---------Task: {} ------------",task);
-        CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task), executor);
-        log.info("Future created, waiting accept");
-        future.thenAccept(status -> {
-            try {
-                log.info("Try future status");
-                channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
-                log.info("Channel response sent");
-            } catch (IOException e) {
-                log.info("Error future status");
-                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
-                log.info("Error is {}",e.getMessage());
-            }
-        });
-        future.exceptionally(ex -> {
-            log.error("Error processing request", ex);
-            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
-            return null;
-        });
+        Map<String,Object> body = request.contentParser().mapOrdered();
+        log.info("---------Body of Post: {} ------------",body.toString());
+        if(body.containsKey("title")){
+            Tasks task = parseRequestBody(request);
+            log.info("---------Task: {} ------------",task);
+            CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task), executor);
+            log.info("Future created, waiting accept");
+            future.thenAccept(status -> {
+                try {
+                    log.info("Try future status");
+                    channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), toJson(task)));
+                    log.info("Channel response sent");
+                } catch (IOException e) {
+                    log.info("Error future status");
+                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                    log.info("Error is {}",e.getMessage());
+                }
+            });
+            future.exceptionally(ex -> {
+                log.error("Error processing request", ex);
+                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
+                return null;
+            });
+        }
+        else{
+            log.info("---------Getting tasks with params------------");
+            CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
+                log.info("---------Searching tasks with params ------------");
+                List<Tasks> tasks = tasksService.searchTasks(body);
+                log.info("---------Tasks found {} ------------",tasks);
+                try {
+                    log.info("--------- Returning tasks response ------------");
+                    channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
+                    log.info("--------- Tasks response sent ------------");
+                } catch (IOException e) {
+                    log.info("---------Send response failed with error {}------------",e.getMessage());
+                    channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
+                    log.info("---------Send response failed. Returning Internal server error------------");
+                }
+                return RestStatus.OK;
+            });
+        }
     }
 
     private Tasks parseRequestBody(RestRequest request) throws IOException {

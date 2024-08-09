@@ -36,6 +36,7 @@ public class TasksService {
     }
 
     public RestStatus deleteTask(String id) {
+        //check previously if exists
         return tasksRepository.deleteTask(id);
     }
 
@@ -53,5 +54,8 @@ public class TasksService {
         return tasksResponse;
     }
 
-    public RestStatus updateTask(Tasks task) { tasksRepository.updateTask(task); return RestStatus.OK; }
+    public RestStatus updateTask(Tasks task) {
+        //check previously if exists
+        tasksRepository.updateTask(task); return RestStatus.OK;
+    }
 }
