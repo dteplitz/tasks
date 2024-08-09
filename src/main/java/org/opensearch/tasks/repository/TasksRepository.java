@@ -12,7 +12,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Client;
@@ -65,7 +67,45 @@ public class TasksRepository {
         }
     }
 
-    public RestStatus createTask(Tasks tasks) {
+    public IndexResponse createTask(Tasks tasks) {
+        try {
+            //todo dont recieve id, just use the default
+            log.info("Creating task {}", tasks);
+            Map<String, Object> taskMap = new HashMap<>();
+            taskMap.put("title", tasks.getTitle());
+            taskMap.put("description", tasks.getDescription());
+            taskMap.put("status", tasks.getStatus());
+            taskMap.put("creationDate", tasks.getCreationDate());
+            taskMap.put("completionDate", tasks.getCompletionDate());
+            taskMap.put("plannedDate", tasks.getPlannedDate());
+            taskMap.put("assignee", tasks.getAssignee());
+            taskMap.put("tags", tasks.getTags());
+            log.info("Task mapped {}", taskMap);
+            IndexRequest indexRequest = Requests.indexRequest(INDEX)
+                    //.id(tasks.getId())
+                    .source(taskMap, XContentType.JSON);
+            log.info("Creating indexRequest {}", indexRequest);
+            IndexResponse result = client.index(indexRequest).actionGet();
+            log.info("Result creating task {}", result);
+            return result;
+        } catch (Exception e) {
+            //log error
+            return null;
+        }
+    }
+
+    public Tasks getTaskById(String id) {
+        try {
+            GetResponse getResponse = client.get(Requests.getRequest(INDEX).id(id)).actionGet();
+            return convertMapToTask(getResponse.getSourceAsMap(),getResponse.getId());
+        } catch (Exception e) {
+            //e.printStackTrace();
+            return null;
+        }
+    }
+
+    public RestStatus updateTask(Tasks tasks) {
+        //todo this is copy of create, it should be different!!
         try {
             log.info("Creating task {}", tasks);
             Map<String, Object> taskMap = new HashMap<>();
@@ -74,14 +114,15 @@ public class TasksRepository {
             taskMap.put("status", tasks.getStatus());
             taskMap.put("creationDate", tasks.getCreationDate());
             taskMap.put("completionDate", tasks.getCompletionDate());
+            taskMap.put("plannedDate", tasks.getPlannedDate());
             taskMap.put("assignee", tasks.getAssignee());
             taskMap.put("tags", tasks.getTags());
             log.info("Task mapped {}", taskMap);
             IndexRequest indexRequest = Requests.indexRequest(INDEX)
-                    .id(tasks.getId())
+                    //.id(tasks.getId())
                     .source(taskMap, XContentType.JSON);
             log.info("Creating indexRequest {}", indexRequest);
-            RestStatus result = client.index(indexRequest).actionGet().status();
+            RestStatus result = client.index(indexRequest).actionGet() .status();
             log.info("Result creating task {}", result);
             return result;
         } catch (Exception e) {
@@ -90,62 +131,85 @@ public class TasksRepository {
         }
     }
 
-    public Tasks getTaskById(String id) {
-        try {
-            Map<String, Object> sourceAsMap = client.get(Requests.getRequest(INDEX).id(id)).actionGet().getSourceAsMap();
-            return convertMapToTask(sourceAsMap);
-        } catch (Exception e) {
-            //e.printStackTrace();
-            return null;
-        }
-    }
-
-    public RestStatus updateTask(Tasks tasks) {
-        return createTask(tasks);  // Re-indexing the task
-    }
-
     public RestStatus deleteTask(String id) {
         return client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
     }
 
     public List<Tasks> searchTasks(Map<String, Object> body) {
+        //todo create constants for tasks index and params abled and everything
         log.info("---------Search tasks. Building query------------");
         BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+
         log.info("---------Adding filters to query------------");
-        // Add "is" filters to the query
-        if (body.containsKey("statusIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("status", body.get("statusIs")));
-            log.info("---------Status filter added {}------------",body.get("statusIs"));
-        }
-        if (body.containsKey("assigneeIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("assignee", body.get("assigneeIs")));
-            log.info("---------Asignee filter added {}------------",body.get("assigneeIs"));
-        }
-        if (body.containsKey("creationDateIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("creationDate", body.get("creationDateIs")));
-            log.info("---------CreationDate filter added {}------------",body.get("creationDateIs"));
-        }
-        if (body.containsKey("completionDateIs")) {
-            boolQuery.must(QueryBuilders.matchQuery("completionDate", body.get("completionDateIs")));
-            log.info("---------CompletionDate filter added {}------------",body.get("completionDateIs"));
-        }
+        addDateFilters(body, boolQuery);
+        addEqualsFilters(body, boolQuery);
         log.info("---------Filters added------------");
+
+        return executeQuery(boolQuery);
+    }
+
+    private List<Tasks> executeQuery(BoolQueryBuilder boolQuery) {
+
         log.info("---------Creating request------------");
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(boolQuery);
-        //todo create constants for tasks index and params abled and everything
         SearchRequest searchRequest = new SearchRequest("tasks"); // Use your index name here
         searchRequest.source(sourceBuilder);
         log.info("---------Request created------------");
+
         log.info("---------Executing search------------");
         List<Tasks> result = executeSearch(searchRequest);
         log.info("---------Tasks found {}------------",result);
+
         return result;
     }
 
-    private Tasks convertMapToTask(Map<String, Object> sourceAsMap) {
+    private static void addEqualsFilters(Map<String, Object> body, BoolQueryBuilder boolQuery) {
+        if (body.containsKey("equals")) {
+            Map<String, Object> equals = (Map<String, Object>) body.get("equals");
+            if (equals.containsKey("statusIs")) {
+                boolQuery.must(QueryBuilders.matchQuery("status", equals.get("statusIs")));
+                log.info("---------Status filter added {}------------",equals.get("statusIs"));
+            }
+            if (equals.containsKey("assigneeIs")) {
+                boolQuery.must(QueryBuilders.matchQuery("assignee", equals.get("assigneeIs")));
+                log.info("---------Asignee filter added {}------------",equals.get("assigneeIs"));
+            }
+        }
+    }
+
+    private static void addDateFilters(Map<String, Object> body, BoolQueryBuilder boolQuery) {
+        log.info("---------Adding date filters------------");
+        if (body.containsKey("creationDateFrom")) {
+            boolQuery.must(QueryBuilders.rangeQuery("creationDate").gte(body.get("creationDateFrom")));
+            log.info("---------CreationDate filter added {}------------", body.get("creationDateFrom"));
+        }
+        if (body.containsKey("creationDateTo")) {
+            boolQuery.must(QueryBuilders.rangeQuery("creationDate").lte(body.get("creationDateTo")));
+            log.info("---------CreationDateTo filter added {}------------", body.get("creationDateTo"));
+        }
+        if (body.containsKey("completionDateFrom")) {
+            boolQuery.must(QueryBuilders.rangeQuery("completionDate").gte(body.get("completionDateFrom")));
+            log.info("---------CreationDate filter added {}------------", body.get("completionDateFrom"));
+        }
+        if (body.containsKey("completionDateTo")) {
+            boolQuery.must(QueryBuilders.rangeQuery("completionDate").lte(body.get("completionDateTo")));
+            log.info("---------CreationDateTo filter added {}------------", body.get("completionDateTo"));
+        }
+        if (body.containsKey("plannedDateFrom")) {
+            boolQuery.must(QueryBuilders.rangeQuery("plannedDate").gte(body.get("plannedDateFrom")));
+            log.info("---------CreationDate filter added {}------------", body.get("plannedDateFrom"));
+        }
+        if (body.containsKey("plannedDateTo")) {
+            boolQuery.must(QueryBuilders.rangeQuery("plannedDate").lte(body.get("plannedDateTo")));
+            log.info("---------CreationDateTo filter added {}------------", body.get("plannedDateTo"));
+        }
+    }
+
+    private Tasks convertMapToTask(Map<String,Object> sourceAsMap, String id) {
+        log.info("Converting to task {} - {}",id,sourceAsMap);
         Tasks tasks = new Tasks();
-        tasks.setId((String) sourceAsMap.getOrDefault("id", null));
+        tasks.setId(id);
         tasks.setTitle((String) sourceAsMap.getOrDefault("title", null));
         tasks.setDescription((String) sourceAsMap.getOrDefault("description", null));
         tasks.setStatus((String) sourceAsMap.getOrDefault("status", null));
@@ -160,7 +224,7 @@ public class TasksRepository {
         try {
             SearchResponse response = client.search(searchRequest).actionGet();
             for (SearchHit hit : response.getHits()) {
-                Tasks task = convertMapToTask(hit.getSourceAsMap());
+                Tasks task = convertMapToTask(hit.getSourceAsMap(),hit.getId());
                 tasksList.add(task);
             }
         } catch (Exception e) {

@@ -18,6 +18,7 @@ public class Tasks {
     private String assignee;
     private String creationDate;
     private String completionDate;
+    private String plannedDate;
     private List<String> tags;
 
     public String getId() {
@@ -82,5 +83,13 @@ public class Tasks {
 
     public void setTags(List<String> tags) {
         this.tags = tags;
+    }
+
+    public String getPlannedDate() {
+        return plannedDate;
+    }
+
+    public void setPlannedDate(String plannedDate) {
+        this.plannedDate = plannedDate;
     }
 }

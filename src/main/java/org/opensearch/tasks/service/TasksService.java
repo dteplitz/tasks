@@ -9,6 +9,7 @@ package org.opensearch.tasks.service;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.action.index.IndexResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.repository.TasksRepository;
@@ -25,11 +26,16 @@ public class TasksService {
         this.tasksRepository = tasksRepository;
     }
 
-    public RestStatus createTask(Tasks tasks) {
+    public Tasks createTask(Tasks tasks) {
         log.info("Creating task {}", tasks);
-        RestStatus result = tasksRepository.createTask(tasks);
-        log.info("Task creating result {}", result);
-        return result;
+        IndexResponse result = tasksRepository.createTask(tasks);
+        if(result.status() == RestStatus.CREATED){
+            tasks.setId(result.getId());
+            log.info("Task creating result {}", tasks);
+            return tasks;
+        }
+        return null;
+
     }
 
     public Tasks getTaskById(String id) {
