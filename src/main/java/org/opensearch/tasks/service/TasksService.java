@@ -13,6 +13,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.repository.TasksRepository;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,13 +46,39 @@ public class TasksService {
         List<Tasks> tasksList = tasksRepository.searchTasks(body);
         log.info("---------Tasks found {}------------",tasksList);
         log.info("---------Filtering tasks found with params------------");
-        List<Tasks> tasksResponse = tasksList.stream()
-                .filter(task -> body.containsKey("tagContains") ? task.getTags().contains(body.get("tagContains").toString()) : true)
-                .filter(task -> body.containsKey("titleContains") ? task.getTitle().contains(body.get("titleContains").toString()) : true)
-                .filter(task -> body.containsKey("descriptionContains") ? task.getDescription().contains(body.get("descriptionContains").toString()) : true)
-                .collect(Collectors.toList());
+        List<Tasks> tasksResponse = filterTasksByContains(body, tasksList);
         log.info("---------Tasks filtered {}------------",tasksResponse);
         return tasksResponse;
+    }
+
+    private static List<Tasks> filterTasksByContains(Map<String, Object> body, List<Tasks> tasksList) {
+        if (!body.containsKey("contains")) {
+            return tasksList;
+        }
+        Map<String, Object> contains = (Map<String, Object>) body.get("contains");
+        @SuppressWarnings("unchecked")
+        List<String> tagsToFilter = (List<String>) contains.get("tags");
+        return tasksList.stream()
+                .filter(task ->
+                        (!contains.containsKey("title") || task.getTitle().contains(contains.get("title").toString())) &&
+                        (!contains.containsKey("description") || task.getDescription().contains(contains.get("description").toString())) &&
+                        (!contains.containsKey("status") || task.getStatus().contains(contains.get("status").toString())) &&
+                        (!contains.containsKey("assignee") || task.getAssignee().contains(contains.get("assignee").toString())) &&
+                        (tagsToFilter == null || task.getTags().stream().allMatch(tagsToFilter::contains))
+        ).collect(Collectors.toList());
+    }
+
+    public static Map<String, List<String>> filterByTags(Map<String, List<String>> tags, List<String> tagsToFilter) {
+        Map<String, List<String>> filteredMap = new HashMap<>();
+
+        for (Map.Entry<String, List<String>> entry : tags.entrySet()) {
+            List<String> tagList = entry.getValue();
+            if (tagList.containsAll(tagsToFilter)) {
+                filteredMap.put(entry.getKey(), tagList);
+            }
+        }
+
+        return filteredMap;
     }
 
     public RestStatus updateTask(Tasks task) {

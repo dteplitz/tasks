@@ -57,9 +57,6 @@ public class TasksController extends BaseRestHandler {
     public List<Route> routes() {
         return List.of(
                 new Route(GET, "/_plugins/tasks/{id}"),
-                new Route(POST, "/_plugins/tasks/status/{status}"),
-                new Route(POST, "/_plugins/tasks/assignee/{assignee}"),
-                new Route(POST, "/_plugins/tasks/status/{status}/assignee/{assignee}"),
                 new Route(POST, "/_plugins/tasks/search"),
                 new Route(POST, "/_plugins/tasks"),
                 new Route(PUT, "/_plugins/tasks/{id}"),
@@ -67,28 +64,10 @@ public class TasksController extends BaseRestHandler {
                 new Route(DELETE, "/_plugins/tasks/{id}")
         );
     }
-/*
-These users would like to be able to know:
-
-- The tasks they have already done.
-- The tasks they have left to do.
-- When they have completed a task, or when they plan to execute it.
-
-They would also like to be able to search for tasks, for example by the text they contain,
-or by a list of tags. Each task can be in different states, such as planned, successfully
-executed, or executed with error.
-
-- Read the `Task` items.
-- Create new `Task` items and persist them (in an OpenSearch index).
-- Set `Task` items as completed.
-- Delete `Task` items.
-- Search `Task` items.
- */
-
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        log.info("---------Starting prepareRequest {} -- {} -- {}--------------",request.param("id"), request.method(), request.params());
+        log.info("---------Starting prepareRequest - Method {} - ID {} ---------------", request.method(),request.param("id"));
         switch (request.method()) {
             case POST:
                 return channel -> {
@@ -98,41 +77,26 @@ executed, or executed with error.
                 log.info("---------Starting GET ------------");
                 return channel -> {
                     getRequestHandle(request, channel);
-
-                /*        log.info("---------Getting task with params------------");
-                        Map<String,Object> body = request.contentParser().mapOrdered();
-                        log.info("---------Params: {} ------------",body.toString());
-                        CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
-                            log.info("---------Searching tasks with params ------------");
-                            List<Tasks> tasks = tasksService.searchTasks(body);
-                            log.info("---------Tasks found {} ------------",tasks);
-                            try {
-                                log.info("--------- Returning tasks response ------------");
-                                channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
-                                log.info("--------- Tasks response sent ------------");
-                            } catch (IOException e) {
-                                log.info("---------Send response failed with error {}------------",e.getMessage());
-                                channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, String.valueOf(XContentType.JSON), e.getMessage()));
-                                log.info("---------Send response failed. Returning Internal server error------------");
-                            }
-                            return RestStatus.OK;
-                        });
-                    }*/
                 };
             case PUT:
-                //test manuelly this
                 return channel -> {
                     putRequestHandle(request, channel);
                 };
             case DELETE:
-                //test manuelly this
                 return channel -> {
                     deleteRequestHandle(channel, request);
                 };
-            //todo add patch method
+            case PATCH:
+                return channel -> {
+                    patchRequestHandle(channel, request);
+                };
             default:
                 return channel -> defaultRequestHandle(channel);
         }
+    }
+
+    private void patchRequestHandle(RestChannel channel, RestRequest request) {
+        //todo implement
     }
 
     private void defaultRequestHandle(RestChannel channel) throws IOException {
@@ -222,14 +186,11 @@ executed, or executed with error.
     }
 
     private void postRequestHandle(RestRequest request, RestChannel channel) throws IOException {
-        //check for status and asignee
-        //      get buy statusAsignee
-        //check if search
-        //      search with params
-        //create
         Map<String,Object> body = request.contentParser().mapOrdered();
         log.info("---------Body of Post: {} ------------",body.toString());
-        if(body.containsKey("title")){
+        //create
+        if(!request.path().contains("search")){
+            log.info("---------Method create Tasks------------");
             Tasks task = parseRequestBody(request);
             log.info("---------Task: {} ------------",task);
             CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task), executor);
@@ -252,7 +213,7 @@ executed, or executed with error.
             });
         }
         else{
-            log.info("---------Getting tasks with params------------");
+            log.info("---------Method search tasks------------");
             CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
                 log.info("---------Searching tasks with params ------------");
                 List<Tasks> tasks = tasksService.searchTasks(body);
