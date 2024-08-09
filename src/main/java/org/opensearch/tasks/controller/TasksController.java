@@ -10,7 +10,6 @@ package org.opensearch.tasks.controller;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.util.NamedThreadFactory;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
@@ -20,7 +19,6 @@ import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
 import org.opensearch.rest.RestRequest;
-import org.opensearch.rest.RestResponse;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.service.TasksService;
 
@@ -42,12 +40,12 @@ public class TasksController extends BaseRestHandler {
     private final ExecutorService executor;
 
     private static final Logger log = LogManager.getLogger(TasksController.class);
+
     public TasksController(TasksService tasksService) {
         this.tasksService = tasksService;
         this.executor = Executors.newFixedThreadPool(10, new NamedThreadFactory("TasksControllerThread"));
 
     }
-    //todo move files to folders insted everything in the same folder
     //todo specifications of apis
 
     @Override
@@ -69,15 +67,13 @@ public class TasksController extends BaseRestHandler {
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        //todo check date format in post, put and patch
-        log.info("---------Starting prepareRequest - Method {} - ID {} ---------------", request.method(),request.param("id"));
+        log.info("Starting prepareRequest - Method {} - ID {}", request.method(), request.param("id"));
         switch (request.method()) {
             case POST:
                 return channel -> {
                     postRequestHandle(request, channel);
                 };
             case GET:
-                log.info("---------Starting GET ------------");
                 return channel -> {
                     getRequestHandle(request, channel);
                 };
@@ -94,19 +90,24 @@ public class TasksController extends BaseRestHandler {
                     patchRequestHandle(channel, request);
                 };
             default:
-                return channel -> defaultRequestHandle(channel);
+                return this::defaultRequestHandle;
         }
     }
 
     private void patchRequestHandle(RestChannel channel, RestRequest request) {
+        log.info("Starting to process PATCH request");
         //todo implement
+        log.info("PATCH request processed");
     }
 
-    private void defaultRequestHandle(RestChannel channel) throws IOException {
+    private void defaultRequestHandle(RestChannel channel) {
+        log.info("Starting to process DEFAULT request");
         channel.sendResponse(new BytesRestResponse(RestStatus.METHOD_NOT_ALLOWED, String.valueOf(XContentType.JSON), toJson(null)));
+        log.info("DEFAULT request processed");
     }
 
     private void deleteRequestHandle(RestChannel channel, RestRequest request) throws IOException {
+        log.info("Starting to process DELETE request");
         String id = request.param("id");
         if (id == null) {
             channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Task ID is missing"));
@@ -124,15 +125,16 @@ public class TasksController extends BaseRestHandler {
             channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
             return null;
         });
+        log.info("DELETE request processed");
     }
 
     private void putRequestHandle(RestRequest request, RestChannel channel) throws IOException {
+        log.info("Starting to process PUT request");
         Tasks task = parseRequestBody(request);
-        if (task == null) {
+        if (task == null || task.getId() == null) {
             channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Invalid task data"));
             return;
         }
-        //todo add validation of param id in service
         CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.updateTask(task), executor);
         log.info("Future created, waiting accept");
         future.thenAccept(status -> {
@@ -146,64 +148,67 @@ public class TasksController extends BaseRestHandler {
             channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
             return null;
         });
+        log.info("PUT request processed");
     }
 
     private void getRequestHandle(RestRequest request, RestChannel channel) {
-        log.info("---------Channel started ------------");
-        //todo add validation of param id if exist
+        log.info("Starting to process GET request");
         String id = request.param("id");
         if (id == null) {
+            log.info("Task ID is missing, returning 400 Bad Request");
             channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Task ID is missing"));
             return;
         }
-        log.info("---------Getting task for id: {} ------------",id);
+        log.info("Getting task for id: {}", id);
         CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> {
-            log.info("---------Starting future get ------------");
+            log.info("Starting future get");
             Tasks task = tasksService.getTaskById(id);
-            log.info("---------Task is {} ------------",task);
+            log.info("Task is {}", task);
             if (task != null) {
-                log.info("---------Task is not null. Returning task ------------");
+                log.info("Task is not null. Returning task");
                 channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(task)));
-                log.info("---------Task returned ------------");
+                log.info("Task returned");
             } else {
-                log.info("---------Task is null. Returning not found ------------");
+                log.info("Task is null. Returning not found");
                 channel.sendResponse(new BytesRestResponse(RestStatus.NOT_FOUND, String.valueOf(XContentType.JSON), toJson(null)));
-                log.info("---------Not found returned ------------");
+                log.info("Not found returned");
             }
             return RestStatus.OK;
         });
+        log.info("GET request processed");
     }
 
     private void postRequestHandle(RestRequest request, RestChannel channel) throws IOException {
-        Map<String,Object> body = request.contentParser().mapOrdered();
-        log.info("---------Body of Post: {} ------------",body.toString());
+        log.info("Starting to process POST request");
+        Map<String, Object> body = request.contentParser().mapOrdered();
+        log.info("Body of Post: {}", body.toString());
         //create
-        if(!request.path().contains("search")){
-            log.info("---------Method create Tasks------------");
+        if (!request.path().contains("search")) {
+            log.info("Method create Tasks");
             Tasks task = parseRequestBody(request);
-            log.info("---------Task: {} ------------",task);
+            log.info("Task: {}", task);
             CompletableFuture<Tasks> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task), executor);
             log.info("Future created, waiting accept");
             handleFutureCreateTask(channel, future, task);
-            log.info("---------End method create Tasks------------");
-        }
-        else{
-            log.info("---------Method search tasks------------");
+            log.info("End method create Tasks");
+        } else {
+            log.info("Method search tasks");
             CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> searchTasks(channel, body));
-            log.info("---------End method search tasks------------");
+            log.info("End method search tasks");
         }
+        log.info("POST request processed");
     }
 
     private void handleFutureCreateTask(RestChannel channel, CompletableFuture<Tasks> future, Tasks task) {
         future.thenAccept(taskResult -> {
-            if(taskResult != null){
+            if (taskResult != null) {
                 log.info("Try future status");
                 channel.sendResponse(new BytesRestResponse(RestStatus.CREATED, String.valueOf(XContentType.JSON), toJson(task)));
                 log.info("Channel response sent");
             }
         });
         future.exceptionally(ex -> {
-            log.error("Error processing request", ex);
+            log.error("Error processing request {}", ex.getMessage());
             channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
             return null;
         });
@@ -212,7 +217,7 @@ public class TasksController extends BaseRestHandler {
     private RestStatus searchTasks(RestChannel channel, Map<String, Object> body) {
         log.info("---------Searching tasks with params ------------");
         List<Tasks> tasks = tasksService.searchTasks(body);
-        log.info("---------Tasks found {} ------------",tasks);
+        log.info("---------Tasks found {} ------------", tasks);
         log.info("--------- Returning tasks response ------------");
         channel.sendResponse(new BytesRestResponse(RestStatus.OK, String.valueOf(XContentType.JSON), toJson(tasks)));
         log.info("--------- Tasks response sent ------------");
@@ -238,7 +243,7 @@ public class TasksController extends BaseRestHandler {
     }
 
     private String toJson(Object object) {
-        try{
+        try {
             XContentBuilder builder = XContentFactory.jsonBuilder();
             builder.startObject();
             if (object instanceof Tasks) {
@@ -270,8 +275,7 @@ public class TasksController extends BaseRestHandler {
             }
             builder.endObject();
             return builder.toString();
-        }
-        catch (IOException e){
+        } catch (IOException e) {
             log.error("Error converting object to JSON", e);
             return "";
         }
