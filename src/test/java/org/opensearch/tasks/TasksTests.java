@@ -7,7 +7,15 @@
  */
 package org.opensearch.tasks;
 
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.rest.RestStatus;
+import org.opensearch.rest.RestChannel;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.RestResponse;
 import org.opensearch.test.OpenSearchTestCase;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class TasksTests extends OpenSearchTestCase {
     // Add unit tests for your plugin

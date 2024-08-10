@@ -59,8 +59,9 @@ public class TasksController extends BaseRestHandler {
                 new Route(GET, "/_plugins/tasks/{id}"),
                 new Route(POST, "/_plugins/tasks/search"),
                 new Route(POST, "/_plugins/tasks"),
-                new Route(PUT, "/_plugins/tasks/{id}"),
-                new Route(PATCH, "/_plugins/tasks/{id}"),
+                //todo delete id from put and patch
+                new Route(PUT, "/_plugins/tasks"),
+                new Route(PATCH, "/_plugins/tasks"),
                 new Route(DELETE, "/_plugins/tasks/{id}")
         );
     }
@@ -94,9 +95,25 @@ public class TasksController extends BaseRestHandler {
         }
     }
 
-    private void patchRequestHandle(RestChannel channel, RestRequest request) {
+    private void patchRequestHandle(RestChannel channel, RestRequest request) throws IOException {
         log.info("Starting to process PATCH request");
-        //todo implement
+        Tasks task = parseRequestBody(request);
+        if (task == null || task.getId() == null) {
+            channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, "Invalid task data"));
+            return;
+        }
+        CompletableFuture<RestStatus> future = CompletableFuture.supplyAsync(() -> tasksService.patchTask(task), executor);
+        log.info("Future created, waiting accept");
+        future.thenAccept(status -> {
+            log.info("Try future status");
+            channel.sendResponse(new BytesRestResponse(status, String.valueOf(XContentType.JSON), ""));
+            log.info("Channel response sent");
+        });
+        future.exceptionally(ex -> {
+            log.error("Error processing request", ex);
+            channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
+            return null;
+        });
         log.info("PATCH request processed");
     }
 
@@ -210,6 +227,9 @@ public class TasksController extends BaseRestHandler {
                 log.info("Try future status");
                 channel.sendResponse(new BytesRestResponse(RestStatus.CREATED, String.valueOf(XContentType.JSON), toJson(task)));
                 log.info("Channel response sent");
+            }
+            else {
+                channel.sendResponse(new BytesRestResponse(RestStatus.BAD_REQUEST, String.valueOf(XContentType.JSON), ""));
             }
         });
         future.exceptionally(ex -> {

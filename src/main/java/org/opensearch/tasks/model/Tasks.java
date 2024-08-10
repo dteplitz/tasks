@@ -92,4 +92,18 @@ public class Tasks {
     public void setPlannedDate(String plannedDate) {
         this.plannedDate = plannedDate;
     }
+    @Override
+    public String toString() {
+        return "Tasks{" +
+                "id='" + id + '\'' +
+                ", title='" + title + '\'' +
+                ", description='" + description + '\'' +
+                ", status='" + status + '\'' +
+                ", assignee='" + assignee + '\'' +
+                ", creationDate='" + creationDate + '\'' +
+                ", completionDate='" + completionDate + '\'' +
+                ", plannedDate='" + plannedDate + '\'' +
+                ", tags=" + tags +
+                '}';
+    }
 }

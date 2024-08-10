@@ -44,6 +44,8 @@ import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.action.update.UpdateHelper.ContextFields.INDEX;
 
@@ -51,14 +53,14 @@ public class TasksRepositoryTests extends LuceneTestCase {
 
     @Mock
     private Client client;
+    @Mock
+    private SearchResponse searchResponse;
+    @Mock
+    private ActionFuture<SearchResponse> searchResponseActionFuture;
+
 
     @Mock
     private ActionFuture<GetResponse> actionFuture;
-    @Mock
-    private ActionFuture<SearchResponse> searchActionFuture;
-
-    @Mock
-    private SearchResponse searchResponse;
     @Mock
     private ActionFuture<IndexResponse> actionFutureIndex;
     @Mock
@@ -71,34 +73,18 @@ public class TasksRepositoryTests extends LuceneTestCase {
     @Mock
     private DeleteResponse deleteResponse;
     @Mock
-    private AdminClient adminClient;
-    @Mock
     private IndexResponse indexResponse;
-    @Mock
-    private IndicesExistsRequestBuilder indicesRequestBuilder;
-    @Mock IndicesAdminClient indicesAdminClient;
-    @Mock
-    private IndicesExistsResponse indicesExistsResponse;
-    private static final String INDEX = "tasks";
 
     @BeforeEach
     public void setUp() {
         // Initialize mocks
         MockitoAnnotations.openMocks(this);
-
-        // Mocking the `client.admin()` to return the `adminClient`
-        /*when(client.admin()).thenReturn(adminClient);
-        when(adminClient.indices()).thenReturn(indicesAdminClient);
-        when(indicesAdminClient.prepareExists(INDEX)).thenReturn(indicesRequestBuilder);
-        when(indicesRequestBuilder.get()).thenReturn(indicesExistsResponse);
-        when(indicesExistsResponse.isExists()).thenReturn(true);
-*/
         // Initialize the repository
         tasksRepository = new TasksRepository(client);
     }
 
     @Test
-    public void testGetTaskById() {
+    public void testGetTaskById_returnTask() {
         String taskId = "1";
 
         // Mock the response map
@@ -109,6 +95,7 @@ public class TasksRepositoryTests extends LuceneTestCase {
         sourceAsMap.put("status", "open");
         sourceAsMap.put("creationDate", null);
         sourceAsMap.put("completionDate", null);
+        sourceAsMap.put("plannedDate", "2024-01-01");
         sourceAsMap.put("assignee", "user1");
         sourceAsMap.put("tags", Arrays.asList("tag1", "tag2"));
 
@@ -127,7 +114,37 @@ public class TasksRepositoryTests extends LuceneTestCase {
         assertEquals("This is a sample task", task.getDescription());
         assertEquals("open", task.getStatus());
         assertEquals("user1", task.getAssignee());
+        assertEquals("user1", task.getAssignee());
+        assertEquals("2024-01-01", task.getPlannedDate());
         assertEquals(Arrays.asList("tag1", "tag2"), task.getTags());
+    }
+
+    @Test
+    public void testGetTaskById_returnNull() {
+        String taskId = "1";
+
+        // Mock the response map
+        Map<String, Object> sourceAsMap = new HashMap<>();
+        sourceAsMap.put("id", taskId);
+        sourceAsMap.put("title", "Sample Task");
+        sourceAsMap.put("description", "This is a sample task");
+        sourceAsMap.put("status", "open");
+        sourceAsMap.put("creationDate", null);
+        sourceAsMap.put("completionDate", null);
+        sourceAsMap.put("assignee", "user1");
+        sourceAsMap.put("tags", Arrays.asList("tag1", "tag2"));
+
+        when(client.get(any())).thenReturn(actionFuture);
+        when(actionFuture.actionGet()).thenReturn(getResponse);
+        when(getResponse.getSourceAsMap()).thenReturn(null);
+        when(getResponse.getId()).thenReturn(null);
+
+        // Call the method
+        Tasks task = tasksRepository.getTaskById(taskId);
+
+        // Verify and assert
+        assertNull(task);
+
     }
 
     @Test
@@ -155,7 +172,7 @@ public class TasksRepositoryTests extends LuceneTestCase {
     }
 
     @Test
-    public void testUpdateTask() {
+    public void testUpdateTask_returnOk() {
         // Create a sample task
         Tasks task = new Tasks();
         task.setId("1");
@@ -180,6 +197,31 @@ public class TasksRepositoryTests extends LuceneTestCase {
     }
 
     @Test
+    public void testUpdateTask_returnError() {
+        // Create a sample task
+        Tasks task = new Tasks();
+        task.setId("1");
+        task.setTitle("Updated Task");
+        task.setDescription("This is an updated task");
+        task.setStatus("in-progress");
+        task.setCreationDate("2024-07-31T03:08:32.299Z");
+        task.setCompletionDate(null);
+        task.setAssignee("user2");
+        task.setTags(Arrays.asList("tag3", "tag4"));
+
+        // Mock the index response
+        when(client.index(any(IndexRequest.class))).thenReturn(actionFutureIndex);
+        when(actionFutureIndex.actionGet()).thenReturn(indexResponse);
+        when(indexResponse.status()).thenReturn(RestStatus.INTERNAL_SERVER_ERROR);
+
+        // Call the method
+        IndexResponse indexResponse = tasksRepository.updateTask(task);
+
+        // Verify and assert
+        assertEquals(RestStatus.INTERNAL_SERVER_ERROR, indexResponse.status());
+    }
+
+    @Test
     public void testDeleteTask() {
         // Mock the delete response
         when(client.delete(any(DeleteRequest.class))).thenReturn(deleteActionFuture);
@@ -192,5 +234,77 @@ public class TasksRepositoryTests extends LuceneTestCase {
         // Verify and assert
         assertEquals(RestStatus.OK, status);
     }
+
+    @Test
+    void testSearchTasks_withDateFilters() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("creationDateFrom", "2023-01-01");
+        body.put("creationDateTo", "2023-12-31");
+
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        for (Map.Entry<String, Object> entry : body.entrySet()) {
+            builder.field(entry.getKey(), entry.getValue());
+        }
+        builder.endObject();
+        BytesReference bytes = BytesReference.bytes(builder);
+
+        SearchHit searchHit = new SearchHit(1);
+        searchHit.sourceRef(bytes);
+
+        TotalHits totalHits = new TotalHits(1, TotalHits.Relation.EQUAL_TO);
+        SearchHits searchHits = new SearchHits(new SearchHit[]{searchHit}, totalHits, 1.0f);
+
+
+        when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
+        when(searchResponseActionFuture.actionGet()).thenReturn(searchResponse);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+
+        List<Tasks> result = tasksRepository.searchTasks(body);
+
+        verify(client, times(1)).search(any(SearchRequest.class));
+        assertEquals(1, result.size());
+    }
+    /*@Test
+    void testSearchTasks_withEqualsFilters() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        Map<String, Object> equals = new HashMap<>();
+        equals.put("statusIs", "completed");
+        equals.put("assigneeIs", "user1");
+        body.put("equals", equals);
+
+        SearchHit[] hits = new SearchHit[]{searchHit};
+        SearchHits searchHits = new SearchHits(hits, new TotalHits(1,TotalHits.Relation.EQUAL_TO), 1.0f);
+
+        when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+        when(searchHit.getSourceAsMap()).thenReturn(new HashMap<>());
+        when(searchHit.getId()).thenReturn("1");
+
+        List<Tasks> result = tasksRepository.searchTasks(body);
+
+        verify(client, times(1)).search(any(SearchRequest.class));
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchTasks_withNoFilters() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+
+        SearchHit[] hits = new SearchHit[]{searchHit};
+        SearchHits searchHits = new SearchHits(hits, new TotalHits(1,TotalHits.Relation.EQUAL_TO), 1.0f);
+
+        when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+        when(searchHit.getSourceAsMap()).thenReturn(new HashMap<>());
+        when(searchHit.getId()).thenReturn("1");
+
+        List<Tasks> result = tasksRepository.searchTasks(body);
+
+        verify(client, times(1)).search(any(SearchRequest.class));
+        assertEquals(1, result.size());
+    }*/
+
+
     //todo create tests for other methods and basic errors
 }

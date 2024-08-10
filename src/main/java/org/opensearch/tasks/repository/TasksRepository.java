@@ -111,10 +111,28 @@ public class TasksRepository {
     }
 
     public IndexResponse updateTask(Tasks tasks) {
-        log.info("Updating task {}", tasks);
-        IndexResponse updateTaskIndex = createTask(tasks);
-        log.info("Updating task result {}", updateTaskIndex.status());
-        return updateTaskIndex;
+        try {
+            log.info("Updating task {}", tasks);
+            Map<String, Object> taskMap = new HashMap<>();
+            taskMap.put("title", tasks.getTitle());
+            taskMap.put("description", tasks.getDescription());
+            taskMap.put("status", tasks.getStatus());
+            taskMap.put("creationDate", tasks.getCreationDate());
+            taskMap.put("completionDate", tasks.getCompletionDate());
+            taskMap.put("plannedDate", tasks.getPlannedDate());
+            taskMap.put("assignee", tasks.getAssignee());
+            taskMap.put("tags", tasks.getTags());
+            log.info("Task mapped {}", taskMap);
+            IndexRequest indexRequest = Requests.indexRequest(INDEX)
+                    .id(tasks.getId())
+                    .source(taskMap, XContentType.JSON);
+            IndexResponse result = client.index(indexRequest).actionGet();
+            log.info("Result updating task {}", result);
+            return result;
+        } catch (Exception e) {
+            log.info("Exception updating task {}", e.getMessage());
+            return null;
+        }
     }
 
     public RestStatus deleteTask(String id) {
@@ -205,6 +223,7 @@ public class TasksRepository {
         tasks.setStatus((String) sourceAsMap.getOrDefault("status", null));
         tasks.setCreationDate((String) sourceAsMap.getOrDefault("creationDate", null));
         tasks.setCompletionDate((String) sourceAsMap.getOrDefault("completionDate", null));
+        tasks.setPlannedDate((String) sourceAsMap.getOrDefault("plannedDate", null));
         tasks.setAssignee((String) sourceAsMap.getOrDefault("assignee", null));
         tasks.setTags((List<String>) sourceAsMap.getOrDefault("tags", null));
         return tasks;
@@ -223,4 +242,5 @@ public class TasksRepository {
         }
         return tasksList;
     }
+
 }

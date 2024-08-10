@@ -14,8 +14,13 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.repository.TasksRepository;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class TasksService {
@@ -27,15 +32,26 @@ public class TasksService {
     }
 
     public Tasks createTask(Tasks tasks) {
-        log.info("Creating task {}", tasks);
-        IndexResponse result = tasksRepository.createTask(tasks);
-        if (result.status() == RestStatus.CREATED) {
-            tasks.setId(result.getId());
-            log.info("Task creating result {}", tasks);
-            return tasks;
+        if (!TaskStatus.isValidStatus(tasks.getStatus())) {
+            log.info("Task status is not valid");
+            return null;
+        } else if (!checkValidTime(tasks)) {
+            log.info("Task dates are not valid");
+            return null;
+        } else {
+            log.info("Creating task {}", tasks);
+            IndexResponse result = tasksRepository.createTask(tasks);
+            if (result.status() == RestStatus.CREATED) {
+                tasks.setId(result.getId());
+                log.info("Task creating result {}", tasks);
+                return tasks;
+            }
+            return null;
         }
-        return null;
+    }
 
+    private boolean checkValidTime(Tasks tasks) {
+        return isValidDate(tasks.getCompletionDate()) && isValidDate(tasks.getCreationDate()) && isValidDate(tasks.getPlannedDate());
     }
 
     public Tasks getTaskById(String id) {
@@ -83,6 +99,13 @@ public class TasksService {
             log.info("Id cannot be null to update {}", task.getId());
             return RestStatus.BAD_REQUEST;
         }
+        if (!TaskStatus.isValidStatus(task.getStatus())) {
+            log.info("Task status is not valid");
+            return RestStatus.BAD_GATEWAY;
+        } else if (!checkValidTime(task)) {
+            log.info("Task dates are not valid");
+            return RestStatus.BAD_GATEWAY;
+        }
         Tasks taskToUpdate = tasksRepository.getTaskById(task.getId());
         if (taskToUpdate == null) {
             log.info("Task not found to update {}", task.getId());
@@ -90,6 +113,10 @@ public class TasksService {
         }
         IndexResponse taskUpdated = tasksRepository.updateTask(task);
         log.info("Update task process with status {}", taskUpdated);
+        if(taskUpdated == null) {
+            log.info("Update task process returned null, assuming task not found");
+            return RestStatus.NOT_FOUND;
+        }
         return taskUpdated.status();
     }
 
@@ -110,5 +137,84 @@ public class TasksService {
                 ).collect(Collectors.toList());
     }
 
+    public RestStatus patchTask(Tasks task) {
+        log.info("Patching task {}", task);
+        if (task.getId() == null) {
+            log.info("Id cannot be null to patch {}", task.getId());
+            return RestStatus.BAD_REQUEST;
+        }
+        if (task.getStatus() != null && !TaskStatus.isValidStatus(task.getStatus())) {
+            log.info("Task status is not valid");
+            return RestStatus.BAD_REQUEST;
+        } else if (!checkValidTime(task)) {
+            log.info("Task dates are not valid");
+            return RestStatus.BAD_REQUEST;
+        }
+        Tasks taskToPatch = tasksRepository.getTaskById(task.getId());
+        if (taskToPatch == null) {
+            log.info("Task not found to update {}", task.getId());
+            return RestStatus.NOT_FOUND;
+        }
+        updateTaskToPatch(taskToPatch, task);
+        IndexResponse taskPatch = tasksRepository.updateTask(taskToPatch);
+        log.info("Patch task process with status {}", taskPatch);
+        if(taskPatch == null) {
+            log.info("Patch task process returned null, assuming task not found");
+            return RestStatus.NOT_FOUND;
+        }
+        return taskPatch.status();
+    }
 
+    private void updateTaskToPatch(Tasks taskToPatch, Tasks task) {
+        if(task.getTitle() != null) {
+            taskToPatch.setTitle(task.getTitle());
+        }
+        if(task.getDescription() != null) {
+            taskToPatch.setDescription(task.getDescription());
+        }
+        if(task.getStatus() != null) {
+            taskToPatch.setStatus(task.getStatus());
+        }
+        if(task.getAssignee() != null) {
+            taskToPatch.setAssignee(task.getAssignee());
+        }
+        if(task.getCreationDate() != null) {
+            taskToPatch.setCreationDate(task.getCreationDate());
+        }
+        if(task.getCompletionDate() != null) {
+            taskToPatch.setCompletionDate(task.getCompletionDate());
+        }
+        if(task.getPlannedDate() != null) {
+            taskToPatch.setPlannedDate(task.getPlannedDate());
+        }
+        if(!task.getTags().isEmpty()) {
+            taskToPatch.setTags(task.getTags());
+        }
+    }
+
+    public enum TaskStatus {
+        PLANNED,
+        EXECUTED_OK,
+        EXECUTED_ERROR;
+
+        public static boolean isValidStatus(String status) {
+            for (TaskStatus ts : TaskStatus.values()) {
+                if (ts.name().equalsIgnoreCase(status)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static final String DATE_PATTERN = "^(\\d{4})-(\\d{2})-(\\d{2})$";
+    private static final Pattern pattern = Pattern.compile(DATE_PATTERN);
+
+    public static boolean isValidDate(String date) {
+        if (date == null) {
+            return true;
+        }
+        Matcher matcher = pattern.matcher(date);
+        return matcher.matches();
+    }
 }
