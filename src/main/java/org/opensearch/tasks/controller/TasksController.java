@@ -211,7 +211,7 @@ public class TasksController extends BaseRestHandler {
             log.info("Task: {}", task);
             CompletableFuture<Tasks> future = CompletableFuture.supplyAsync(() -> tasksService.createTask(task), executor);
             log.info("Future created, waiting accept");
-            handleFutureCreateTask(channel, future, task);
+            handleFutureCreateTask(channel, future);
             log.info("End method create Tasks");
         } else {
             log.info("Method search tasks");
@@ -221,11 +221,11 @@ public class TasksController extends BaseRestHandler {
         log.info("POST request processed");
     }
 
-    private void handleFutureCreateTask(RestChannel channel, CompletableFuture<Tasks> future, Tasks task) {
+    private void handleFutureCreateTask(RestChannel channel, CompletableFuture<Tasks> future) {
         future.thenAccept(taskResult -> {
             if (taskResult != null) {
                 log.info("Try future status");
-                channel.sendResponse(new BytesRestResponse(RestStatus.CREATED, String.valueOf(XContentType.JSON), toJson(task)));
+                channel.sendResponse(new BytesRestResponse(RestStatus.CREATED, String.valueOf(XContentType.JSON), toJson(taskResult)));
                 log.info("Channel response sent");
             }
             else {
@@ -279,6 +279,7 @@ public class TasksController extends BaseRestHandler {
                 builder.field("status", task.getStatus());
                 builder.field("creationDate", task.getCreationDate());
                 builder.field("completionDate", task.getCompletionDate());
+                builder.field("plannedDate", task.getPlannedDate());
                 builder.field("assignee", task.getAssignee());
                 builder.field("tags", task.getTags());
             } else if (object instanceof List) {
@@ -292,6 +293,7 @@ public class TasksController extends BaseRestHandler {
                     builder.field("status", task.getStatus());
                     builder.field("creationDate", task.getCreationDate());
                     builder.field("completionDate", task.getCompletionDate());
+                    builder.field("plannedDate", task.getPlannedDate());
                     builder.field("assignee", task.getAssignee());
                     builder.field("tags", task.getTags());
                     builder.endObject();
