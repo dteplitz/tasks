@@ -14,9 +14,6 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.repository.TasksRepository;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -41,7 +38,7 @@ public class TasksService {
         } else {
             log.info("Creating task {}", tasks);
             IndexResponse result = tasksRepository.createTask(tasks);
-            if (result.status() == RestStatus.CREATED) {
+            if (result != null && result.status() == RestStatus.CREATED) {
                 tasks.setId(result.getId());
                 log.info("Task creating result {}", tasks);
                 return tasks;
@@ -113,7 +110,7 @@ public class TasksService {
         }
         IndexResponse taskUpdated = tasksRepository.updateTask(task);
         log.info("Update task process with status {}", taskUpdated);
-        if(taskUpdated == null) {
+        if (taskUpdated == null) {
             log.info("Update task process returned null, assuming task not found");
             return RestStatus.NOT_FOUND;
         }
@@ -158,7 +155,7 @@ public class TasksService {
         updateTaskToPatch(taskToPatch, task);
         IndexResponse taskPatch = tasksRepository.updateTask(taskToPatch);
         log.info("Patch task process with status {}", taskPatch);
-        if(taskPatch == null) {
+        if (taskPatch == null) {
             log.info("Patch task process returned null, assuming task not found");
             return RestStatus.NOT_FOUND;
         }
@@ -166,28 +163,28 @@ public class TasksService {
     }
 
     private void updateTaskToPatch(Tasks taskToPatch, Tasks task) {
-        if(task.getTitle() != null) {
+        if (task.getTitle() != null) {
             taskToPatch.setTitle(task.getTitle());
         }
-        if(task.getDescription() != null) {
+        if (task.getDescription() != null) {
             taskToPatch.setDescription(task.getDescription());
         }
-        if(task.getStatus() != null) {
+        if (task.getStatus() != null) {
             taskToPatch.setStatus(task.getStatus());
         }
-        if(task.getAssignee() != null) {
+        if (task.getAssignee() != null) {
             taskToPatch.setAssignee(task.getAssignee());
         }
-        if(task.getCreationDate() != null) {
+        if (task.getCreationDate() != null) {
             taskToPatch.setCreationDate(task.getCreationDate());
         }
-        if(task.getCompletionDate() != null) {
+        if (task.getCompletionDate() != null) {
             taskToPatch.setCompletionDate(task.getCompletionDate());
         }
-        if(task.getPlannedDate() != null) {
+        if (task.getPlannedDate() != null) {
             taskToPatch.setPlannedDate(task.getPlannedDate());
         }
-        if(!task.getTags().isEmpty()) {
+        if (task.getTags() != null && !task.getTags().isEmpty()) {
             taskToPatch.setTags(task.getTags());
         }
     }
