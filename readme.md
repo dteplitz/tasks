@@ -99,3 +99,5 @@ Unit tests for the repository layer ensure the correctness of the implementation
 2. **Run the Plugin:** Use Gradle to run the plugin.
    ```bash
    ./gradlew run
+3. **URL Configuration: The plugin is configured to run on localhost:9200/_plugins/..**
+
