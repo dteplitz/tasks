@@ -24,105 +24,185 @@ public class TasksService {
     private final TasksRepository tasksRepository;
     private static final Logger log = LogManager.getLogger(TasksService.class);
 
+    private static final String DATE_PATTERN = "^(\\d{4})-(\\d{2})-(\\d{2})$";
+    private static final Pattern pattern = Pattern.compile(DATE_PATTERN);
+
     public TasksService(TasksRepository tasksRepository) {
         this.tasksRepository = tasksRepository;
     }
 
+    /**
+     * Creates a new task if the task status and dates are valid.
+     *
+     * @param tasks The task to be created.
+     * @return The created task with its ID set, or null if the task is invalid.
+     */
     public Tasks createTask(Tasks tasks) {
         if (!TaskStatus.isValidStatus(tasks.getStatus())) {
-            log.info("Task status is not valid");
-            return null;
-        } else if (!checkValidTime(tasks)) {
-            log.info("Task dates are not valid");
-            return null;
-        } else {
-            log.info("Creating task {}", tasks);
-            IndexResponse result = tasksRepository.createTask(tasks);
-            if (result != null && result.status() == RestStatus.CREATED) {
-                tasks.setId(result.getId());
-                log.info("Task creating result {}", tasks);
-                return tasks;
-            }
+            log.info("Invalid task status: {}", tasks.getStatus());
             return null;
         }
+        if (!checkValidDates(tasks)) {
+            log.info("Invalid task dates");
+            return null;
+        }
+        log.info("Creating task: {}", tasks);
+        IndexResponse result = tasksRepository.createTask(tasks);
+        if (result != null && result.status() == RestStatus.CREATED) {
+            tasks.setId(result.getId());
+            log.info("Task created successfully: {}", tasks);
+            return tasks;
+        }
+        log.info("Task creation failed");
+        return null;
     }
 
-    private boolean checkValidTime(Tasks tasks) {
-        return isValidDate(tasks.getCompletionDate()) && isValidDate(tasks.getCreationDate()) && isValidDate(tasks.getPlannedDate());
-    }
-
+    /**
+     * Retrieves a task by its ID.
+     *
+     * @param id The ID of the task to retrieve.
+     * @return The task if found, or null if not.
+     */
     public Tasks getTaskById(String id) {
-        log.info("Getting task by id {}", id);
+        log.info("Retrieving task by ID: {}", id);
         if (id == null) {
-            log.info("Id was null, returning null");
+            log.info("Task ID is null");
             return null;
         }
-        Tasks tasks = tasksRepository.getTaskById(id);
-        log.info("Task retrieved {}", tasks);
-        return tasks;
+        Tasks task = tasksRepository.getTaskById(id);
+        log.info("Task retrieved: {}", task);
+        return task;
     }
 
+    /**
+     * Deletes a task by its ID.
+     *
+     * @param id The ID of the task to delete.
+     * @return The status of the delete operation.
+     */
     public RestStatus deleteTask(String id) {
-        log.info("Deleting task by id {}", id);
+        log.info("Deleting task by ID: {}", id);
         if (id == null) {
-            log.info("Id was null, returning NOT_FOUND");
+            log.info("Task ID is null, cannot delete");
             return RestStatus.NOT_FOUND;
         }
-        log.info("Searching task to delete");
         Tasks task = tasksRepository.getTaskById(id);
         if (task != null) {
-            log.info("Task found, deleting {}", task);
+            log.info("Task found, proceeding to delete: {}", task);
             RestStatus status = tasksRepository.deleteTask(id);
-            log.info("Delete task process with status {}", status);
+            log.info("Task deletion status: {}", status);
             return status;
         }
-        log.info("Task to delete not found");
+        log.info("Task not found, cannot delete");
         return RestStatus.NOT_FOUND;
     }
 
+    /**
+     * Searches for tasks based on the provided criteria.
+     *
+     * @param body The search criteria as a map.
+     * @return A list of tasks matching the search criteria.
+     */
     public List<Tasks> searchTasks(Map<String, Object> body) {
-        log.info("Searching tasks");
+        log.info("Searching tasks with criteria: {}", body);
         List<Tasks> tasksList = tasksRepository.searchTasks(body);
-        log.info("Tasks found {}", tasksList);
-        log.info("Filtering tasks found with search parameters");
-        List<Tasks> tasksResponse = filterTasksByContains(body, tasksList);
-        log.info("Tasks filtered {}", tasksResponse);
-        return tasksResponse;
+        log.info("Tasks found: {}", tasksList);
+        return filterTasksByContains(body, tasksList);
     }
 
+    /**
+     * Updates a task if it exists and the status and dates are valid.
+     *
+     * @param task The task to update.
+     * @return The status of the update operation.
+     */
     public RestStatus updateTask(Tasks task) {
-        log.info("Updating task {}", task);
+        log.info("Updating task: {}", task);
         if (task.getId() == null) {
-            log.info("Id cannot be null to update {}", task.getId());
+            log.info("Task ID is null, cannot update");
             return RestStatus.BAD_REQUEST;
         }
         if (!TaskStatus.isValidStatus(task.getStatus())) {
-            log.info("Task status is not valid");
-            return RestStatus.BAD_GATEWAY;
-        } else if (!checkValidTime(task)) {
-            log.info("Task dates are not valid");
-            return RestStatus.BAD_GATEWAY;
+            log.info("Invalid task status: {}", task.getStatus());
+            return RestStatus.BAD_REQUEST;
         }
-        Tasks taskToUpdate = tasksRepository.getTaskById(task.getId());
-        if (taskToUpdate == null) {
-            log.info("Task not found to update {}", task.getId());
+        if (!checkValidDates(task)) {
+            log.info("Invalid task dates");
+            return RestStatus.BAD_REQUEST;
+        }
+        Tasks existingTask = tasksRepository.getTaskById(task.getId());
+        if (existingTask == null) {
+            log.info("Task not found, cannot update: {}", task.getId());
             return RestStatus.NOT_FOUND;
         }
-        IndexResponse taskUpdated = tasksRepository.updateTask(task);
-        log.info("Update task process with status {}", taskUpdated);
-        if (taskUpdated == null) {
-            log.info("Update task process returned null, assuming task not found");
+        IndexResponse updateResponse = tasksRepository.updateTask(task);
+        if (updateResponse == null) {
+            log.info("Task update failed, task not found");
             return RestStatus.NOT_FOUND;
         }
-        return taskUpdated.status();
+        log.info("Task updated successfully with status: {}", updateResponse.status());
+        return updateResponse.status();
     }
 
+    /**
+     * Partially updates a task by patching the provided fields.
+     *
+     * @param task The task with fields to patch.
+     * @return The status of the patch operation.
+     */
+    public RestStatus patchTask(Tasks task) {
+        log.info("Patching task: {}", task);
+        if (task.getId() == null) {
+            log.info("Task ID is null, cannot patch");
+            return RestStatus.BAD_REQUEST;
+        }
+        if (task.getStatus() != null && !TaskStatus.isValidStatus(task.getStatus())) {
+            log.info("Invalid task status: {}", task.getStatus());
+            return RestStatus.BAD_REQUEST;
+        }
+        if (!checkValidDates(task)) {
+            log.info("Invalid task dates");
+            return RestStatus.BAD_REQUEST;
+        }
+        Tasks existingTask = tasksRepository.getTaskById(task.getId());
+        if (existingTask == null) {
+            log.info("Task not found, cannot patch: {}", task.getId());
+            return RestStatus.NOT_FOUND;
+        }
+        updateTaskFields(existingTask, task);
+        IndexResponse patchResponse = tasksRepository.updateTask(existingTask);
+        if (patchResponse == null) {
+            log.info("Task patch failed, task not found");
+            return RestStatus.NOT_FOUND;
+        }
+        log.info("Task patched successfully with status: {}", patchResponse.status());
+        return patchResponse.status();
+    }
+
+    /**
+     * Validates the date fields of a task.
+     *
+     * @param tasks The task whose dates are to be validated.
+     * @return True if all date fields are valid, otherwise false.
+     */
+    private boolean checkValidDates(Tasks tasks) {
+        return isValidDate(tasks.getCompletionDate()) &&
+                isValidDate(tasks.getCreationDate()) &&
+                isValidDate(tasks.getPlannedDate());
+    }
+
+    /**
+     * Filters tasks based on the 'contains' criteria in the search body.
+     *
+     * @param body      The search criteria.
+     * @param tasksList The list of tasks to filter.
+     * @return A list of tasks that match the 'contains' criteria.
+     */
     private static List<Tasks> filterTasksByContains(Map<String, Object> body, List<Tasks> tasksList) {
         if (!body.containsKey("contains")) {
             return tasksList;
         }
         Map<String, Object> contains = (Map<String, Object>) body.get("contains");
-        @SuppressWarnings("unchecked")
         List<String> tagsToFilter = (List<String>) contains.get("tags");
         return tasksList.stream()
                 .filter(task ->
@@ -134,66 +214,67 @@ public class TasksService {
                 ).collect(Collectors.toList());
     }
 
-    public RestStatus patchTask(Tasks task) {
-        log.info("Patching task {}", task);
-        if (task.getId() == null) {
-            log.info("Id cannot be null to patch {}", task.getId());
-            return RestStatus.BAD_REQUEST;
+    /**
+     * Updates the fields of the existing task with the fields from the new task.
+     *
+     * @param existingTask The existing task to update.
+     * @param newTask      The new task with fields to update.
+     */
+    private void updateTaskFields(Tasks existingTask, Tasks newTask) {
+        if (newTask.getTitle() != null) {
+            existingTask.setTitle(newTask.getTitle());
         }
-        if (task.getStatus() != null && !TaskStatus.isValidStatus(task.getStatus())) {
-            log.info("Task status is not valid");
-            return RestStatus.BAD_REQUEST;
-        } else if (!checkValidTime(task)) {
-            log.info("Task dates are not valid");
-            return RestStatus.BAD_REQUEST;
+        if (newTask.getDescription() != null) {
+            existingTask.setDescription(newTask.getDescription());
         }
-        Tasks taskToPatch = tasksRepository.getTaskById(task.getId());
-        if (taskToPatch == null) {
-            log.info("Task not found to update {}", task.getId());
-            return RestStatus.NOT_FOUND;
+        if (newTask.getStatus() != null) {
+            existingTask.setStatus(newTask.getStatus());
         }
-        updateTaskToPatch(taskToPatch, task);
-        IndexResponse taskPatch = tasksRepository.updateTask(taskToPatch);
-        log.info("Patch task process with status {}", taskPatch);
-        if (taskPatch == null) {
-            log.info("Patch task process returned null, assuming task not found");
-            return RestStatus.NOT_FOUND;
+        if (newTask.getAssignee() != null) {
+            existingTask.setAssignee(newTask.getAssignee());
         }
-        return taskPatch.status();
-    }
-
-    private void updateTaskToPatch(Tasks taskToPatch, Tasks task) {
-        if (task.getTitle() != null) {
-            taskToPatch.setTitle(task.getTitle());
+        if (newTask.getCreationDate() != null) {
+            existingTask.setCreationDate(newTask.getCreationDate());
         }
-        if (task.getDescription() != null) {
-            taskToPatch.setDescription(task.getDescription());
+        if (newTask.getCompletionDate() != null) {
+            existingTask.setCompletionDate(newTask.getCompletionDate());
         }
-        if (task.getStatus() != null) {
-            taskToPatch.setStatus(task.getStatus());
+        if (newTask.getPlannedDate() != null) {
+            existingTask.setPlannedDate(newTask.getPlannedDate());
         }
-        if (task.getAssignee() != null) {
-            taskToPatch.setAssignee(task.getAssignee());
-        }
-        if (task.getCreationDate() != null) {
-            taskToPatch.setCreationDate(task.getCreationDate());
-        }
-        if (task.getCompletionDate() != null) {
-            taskToPatch.setCompletionDate(task.getCompletionDate());
-        }
-        if (task.getPlannedDate() != null) {
-            taskToPatch.setPlannedDate(task.getPlannedDate());
-        }
-        if (task.getTags() != null && !task.getTags().isEmpty()) {
-            taskToPatch.setTags(task.getTags());
+        if (newTask.getTags() != null && !newTask.getTags().isEmpty()) {
+            existingTask.setTags(newTask.getTags());
         }
     }
 
+    /**
+     * Validates a date string against the required pattern.
+     *
+     * @param date The date string to validate.
+     * @return True if the date is valid or null, otherwise false.
+     */
+    public static boolean isValidDate(String date) {
+        if (date == null) {
+            return true; // Allow null dates
+        }
+        Matcher matcher = pattern.matcher(date);
+        return matcher.matches();
+    }
+
+    /**
+     * Enum representing the possible task statuses.
+     */
     public enum TaskStatus {
         PLANNED,
         EXECUTED_OK,
         EXECUTED_ERROR;
 
+        /**
+         * Checks if the given status is valid.
+         *
+         * @param status The status to check.
+         * @return True if the status is valid, otherwise false.
+         */
         public static boolean isValidStatus(String status) {
             for (TaskStatus ts : TaskStatus.values()) {
                 if (ts.name().equalsIgnoreCase(status)) {
@@ -202,16 +283,5 @@ public class TasksService {
             }
             return false;
         }
-    }
-
-    private static final String DATE_PATTERN = "^(\\d{4})-(\\d{2})-(\\d{2})$";
-    private static final Pattern pattern = Pattern.compile(DATE_PATTERN);
-
-    public static boolean isValidDate(String date) {
-        if (date == null) {
-            return true;
-        }
-        Matcher matcher = pattern.matcher(date);
-        return matcher.matches();
     }
 }
