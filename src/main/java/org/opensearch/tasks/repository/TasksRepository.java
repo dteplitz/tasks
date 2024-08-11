@@ -136,10 +136,15 @@ public class TasksRepository {
     }
 
     public RestStatus deleteTask(String id) {
-        log.info("Deleting task by id {}", id);
-        RestStatus status = client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
-        log.info("Delete task result {}", status);
-        return status;
+        try {
+            log.info("Deleting task by id {}", id);
+            RestStatus status = client.delete(Requests.deleteRequest(INDEX).id(id)).actionGet().status();
+            log.info("Delete task result {}", status);
+            return status;
+        } catch (Exception e) {
+            log.info("Exception deleting task {}", e.getMessage());
+            return RestStatus.BAD_REQUEST;
+        }
     }
 
     public List<Tasks> searchTasks(Map<String, Object> body) {
@@ -242,5 +247,6 @@ public class TasksRepository {
         }
         return tasksList;
     }
+
 
 }

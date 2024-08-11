@@ -13,8 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.action.admin.indices.exists.indices.IndicesExistsRequestBuilder;
-import org.opensearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.get.GetResponse;
@@ -22,9 +20,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.AdminClient;
 import org.opensearch.client.Client;
-import org.opensearch.client.IndicesAdminClient;
 import org.opensearch.common.action.ActionFuture;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -35,19 +31,15 @@ import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.model.Tasks;
 import org.opensearch.tasks.repository.TasksRepository;
 
-import java.io.IOException;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.action.update.UpdateHelper.ContextFields.INDEX;
 
 public class TasksRepositoryTests extends LuceneTestCase {
 
@@ -83,81 +75,136 @@ public class TasksRepositoryTests extends LuceneTestCase {
         tasksRepository = new TasksRepository(client);
     }
 
-    @Test
-    public void testGetTaskById_returnTask() {
-        String taskId = "1";
+    private static final String TASK_ID = "1";
+    private static final String TITLE = "Sample Task";
+    private static final String DESCRIPTION = "This is a sample task";
+    private static final String STATUS = "open";
+    private static final String ASSIGNEE = "user1";
+    private static final String PLANNED_DATE = "2024-01-01";
+    private static final List<String> TAGS = Arrays.asList("tag1", "tag2");
 
-        // Mock the response map
+    private static final String CREATION_DATE_FROM = "creationDateFrom";
+    private static final String CREATION_DATE_TO = "creationDateTo";
+    private static final String COMPLETION_DATE_FROM = "completionDateFrom";
+    private static final String COMPLETION_DATE_TO = "completionDateTo";
+    private static final String PLANNED_DATE_FROM = "plannedDateFrom";
+    private static final String PLANNED_DATE_TO = "plannedDateTo";
+
+    // Helper method to create a task map
+    private Map<String, Object> createTaskMap(String taskId, String title, String description,
+                                              String status, String assignee,
+                                              String plannedDate, List<String> tags) {
         Map<String, Object> sourceAsMap = new HashMap<>();
         sourceAsMap.put("id", taskId);
-        sourceAsMap.put("title", "Sample Task");
-        sourceAsMap.put("description", "This is a sample task");
-        sourceAsMap.put("status", "open");
+        sourceAsMap.put("title", title);
+        sourceAsMap.put("description", description);
+        sourceAsMap.put("status", status);
         sourceAsMap.put("creationDate", null);
         sourceAsMap.put("completionDate", null);
-        sourceAsMap.put("plannedDate", "2024-01-01");
-        sourceAsMap.put("assignee", "user1");
-        sourceAsMap.put("tags", Arrays.asList("tag1", "tag2"));
+        sourceAsMap.put("plannedDate", plannedDate);
+        sourceAsMap.put("assignee", assignee);
+        sourceAsMap.put("tags", tags);
+        return sourceAsMap;
+    }
+
+    // Helper method to create a sample task
+    private Tasks createSampleTask() {
+        Tasks task = new Tasks();
+        task.setTitle(TITLE);
+        task.setDescription(DESCRIPTION);
+        task.setStatus(STATUS);
+        task.setCreationDate(null);
+        task.setCompletionDate(null);
+        task.setPlannedDate(PLANNED_DATE);
+        task.setAssignee(ASSIGNEE);
+        task.setTags(TAGS);
+        return task;
+    }
+
+    @Test
+    public void givenValidTaskId_whenGettingTask_shouldReturnTask() {
+        Map<String, Object> sourceAsMap = createTaskMap(TASK_ID, TITLE, DESCRIPTION, STATUS, ASSIGNEE, PLANNED_DATE, TAGS);
 
         when(client.get(any())).thenReturn(actionFuture);
         when(actionFuture.actionGet()).thenReturn(getResponse);
         when(getResponse.getSourceAsMap()).thenReturn(sourceAsMap);
-        when(getResponse.getId()).thenReturn(taskId);
+        when(getResponse.getId()).thenReturn(TASK_ID);
 
         // Call the method
-        Tasks task = tasksRepository.getTaskById(taskId);
+        Tasks task = tasksRepository.getTaskById(TASK_ID);
 
         // Verify and assert
         assertNotNull(task);
-        //assertEquals(taskId, task.getId());
-        assertEquals("Sample Task", task.getTitle());
-        assertEquals("This is a sample task", task.getDescription());
-        assertEquals("open", task.getStatus());
-        assertEquals("user1", task.getAssignee());
-        assertEquals("user1", task.getAssignee());
-        assertEquals("2024-01-01", task.getPlannedDate());
-        assertEquals(Arrays.asList("tag1", "tag2"), task.getTags());
+        assertEquals(TASK_ID, task.getId());
+        assertEquals(TITLE, task.getTitle());
+        assertEquals(DESCRIPTION, task.getDescription());
+        assertEquals(STATUS, task.getStatus());
+        assertEquals(ASSIGNEE, task.getAssignee());
+        assertEquals(PLANNED_DATE, task.getPlannedDate());
+        assertEquals(TAGS, task.getTags());
     }
 
     @Test
-    public void testGetTaskById_returnNull() {
-        String taskId = "1";
-
-        // Mock the response map
-        Map<String, Object> sourceAsMap = new HashMap<>();
-        sourceAsMap.put("id", taskId);
-        sourceAsMap.put("title", "Sample Task");
-        sourceAsMap.put("description", "This is a sample task");
-        sourceAsMap.put("status", "open");
-        sourceAsMap.put("creationDate", null);
-        sourceAsMap.put("completionDate", null);
-        sourceAsMap.put("assignee", "user1");
-        sourceAsMap.put("tags", Arrays.asList("tag1", "tag2"));
+    public void givenInvalidTaskId_whenGettingTask_shouldReturnNull() {
+        String invalidTaskId = "non-existent-id";
 
         when(client.get(any())).thenReturn(actionFuture);
         when(actionFuture.actionGet()).thenReturn(getResponse);
-        when(getResponse.getSourceAsMap()).thenReturn(null);
         when(getResponse.getId()).thenReturn(null);
 
         // Call the method
-        Tasks task = tasksRepository.getTaskById(taskId);
+        Tasks task = tasksRepository.getTaskById(invalidTaskId);
 
         // Verify and assert
         assertNull(task);
-
     }
 
     @Test
-    public void testCreateTask() throws Exception {
-        // Create a sample task
-        Tasks task = new Tasks();
-        task.setTitle("Sample Task");
-        task.setDescription("This is a sample task");
-        task.setStatus("open");
-        task.setCreationDate(null);
-        task.setCompletionDate(null);
-        task.setAssignee("user1");
-        task.setTags(Arrays.asList("tag1", "tag2"));
+    public void givenNullTaskId_whenGettingTask_shouldReturnNull() {
+        // Call the method
+        Tasks task = tasksRepository.getTaskById(null);
+
+        // Verify and assert
+        assertNull(task);
+    }
+
+    @Test
+    public void givenExceptionWhileGettingTask_whenGettingTask_shouldReturnNull() {
+        when(client.get(any())).thenThrow(new RuntimeException("Simulated exception"));
+
+        // Call the method
+        Tasks task = tasksRepository.getTaskById(TASK_ID);
+
+        // Verify and assert
+        assertNull(task);
+    }
+
+    @Test
+    public void givenTaskWithNullFields_whenGettingTask_shouldReturnTaskWithNullValues() {
+        Map<String, Object> sourceAsMap = createTaskMap(TASK_ID, null, null, null, null, null, null);
+
+        when(client.get(any())).thenReturn(actionFuture);
+        when(actionFuture.actionGet()).thenReturn(getResponse);
+        when(getResponse.getSourceAsMap()).thenReturn(sourceAsMap);
+        when(getResponse.getId()).thenReturn(TASK_ID);
+
+        // Call the method
+        Tasks task = tasksRepository.getTaskById(TASK_ID);
+
+        // Verify and assert
+        assertNotNull(task);
+        assertEquals(TASK_ID, task.getId());
+        assertNull(task.getTitle());
+        assertNull(task.getDescription());
+        assertNull(task.getStatus());
+        assertNull(task.getAssignee());
+        assertNull(task.getPlannedDate());
+        assertNull(task.getTags());
+    }
+
+    @Test
+    public void givenValidTask_whenCreatingTask_shouldCreateTaskSuccessfully() {
+        Tasks task = createSampleTask();
 
         // Mock the index response
         when(client.index(any(IndexRequest.class))).thenReturn(actionFutureIndex);
@@ -168,19 +215,59 @@ public class TasksRepositoryTests extends LuceneTestCase {
         IndexResponse response = tasksRepository.createTask(task);
 
         // Verify and assert
+        assertNotNull(response);
         assertEquals(RestStatus.CREATED, response.status());
     }
 
     @Test
-    public void testUpdateTask_returnOk() {
-        // Create a sample task
+    public void givenNullTask_whenCreatingTask_shouldReturnNull() {
+        // Call the method with null task
+        IndexResponse response = tasksRepository.createTask(null);
+
+        // Verify and assert
+        assertNull(response);
+    }
+
+    @Test
+    public void givenTaskWithNullFields_whenCreatingTask_shouldCreateTaskSuccessfully() {
+        Tasks task = new Tasks(); // All fields are null
+
+        // Mock the index response
+        when(client.index(any(IndexRequest.class))).thenReturn(actionFutureIndex);
+        when(actionFutureIndex.actionGet()).thenReturn(indexResponse);
+        when(indexResponse.status()).thenReturn(RestStatus.CREATED);
+
+        // Call the method
+        IndexResponse response = tasksRepository.createTask(task);
+
+        // Verify and assert
+        assertNotNull(response);
+        assertEquals(RestStatus.CREATED, response.status());
+    }
+
+    @Test
+    public void givenExceptionWhileCreatingTask_whenCreatingTask_shouldReturnNull() {
+        Tasks task = createSampleTask();
+
+        when(client.index(any(IndexRequest.class))).thenThrow(new RuntimeException("Simulated exception"));
+
+        // Call the method
+        IndexResponse response = tasksRepository.createTask(task);
+
+        // Verify and assert
+        assertNull(response);
+    }
+
+    @Test
+    public void givenValidTask_whenUpdatingTask_shouldUpdateTaskSuccessfully() {
         Tasks task = new Tasks();
-        task.setId("1");
+        task.setId(TASK_ID);
         task.setTitle("Updated Task");
         task.setDescription("This is an updated task");
         task.setStatus("in-progress");
         task.setCreationDate("2024-07-31T03:08:32.299Z");
         task.setCompletionDate(null);
+        task.setPlannedDate(PLANNED_DATE);
         task.setAssignee("user2");
         task.setTags(Arrays.asList("tag3", "tag4"));
 
@@ -190,57 +277,131 @@ public class TasksRepositoryTests extends LuceneTestCase {
         when(indexResponse.status()).thenReturn(RestStatus.OK);
 
         // Call the method
-        IndexResponse indexResponse = tasksRepository.updateTask(task);
+        IndexResponse response = tasksRepository.updateTask(task);
 
         // Verify and assert
-        assertEquals(RestStatus.OK, indexResponse.status());
+        assertNotNull(response);
+        assertEquals(RestStatus.OK, response.status());
     }
 
     @Test
-    public void testUpdateTask_returnError() {
-        // Create a sample task
+    public void givenNullTask_whenUpdatingTask_shouldReturnNull() {
+        // Call the method with null task
+        IndexResponse response = tasksRepository.updateTask(null);
+
+        // Verify and assert
+        assertNull(response);
+    }
+
+    @Test
+    public void givenTaskWithNullFields_whenUpdatingTask_shouldUpdateTaskSuccessfully() {
         Tasks task = new Tasks();
-        task.setId("1");
-        task.setTitle("Updated Task");
-        task.setDescription("This is an updated task");
-        task.setStatus("in-progress");
-        task.setCreationDate("2024-07-31T03:08:32.299Z");
-        task.setCompletionDate(null);
-        task.setAssignee("user2");
-        task.setTags(Arrays.asList("tag3", "tag4"));
+        task.setId(TASK_ID);  // Only ID is set; other fields are null
 
         // Mock the index response
         when(client.index(any(IndexRequest.class))).thenReturn(actionFutureIndex);
         when(actionFutureIndex.actionGet()).thenReturn(indexResponse);
-        when(indexResponse.status()).thenReturn(RestStatus.INTERNAL_SERVER_ERROR);
+        when(indexResponse.status()).thenReturn(RestStatus.OK);
 
         // Call the method
-        IndexResponse indexResponse = tasksRepository.updateTask(task);
+        IndexResponse response = tasksRepository.updateTask(task);
 
         // Verify and assert
-        assertEquals(RestStatus.INTERNAL_SERVER_ERROR, indexResponse.status());
+        assertNotNull(response);
+        assertEquals(RestStatus.OK, response.status());
     }
 
     @Test
-    public void testDeleteTask() {
+    public void givenValidTask_whenExceptionOccursWhileUpdatingTask_shouldReturnNull() {
+        Tasks task = createSampleTask();
+        task.setId(TASK_ID);
+
+        when(client.index(any(IndexRequest.class))).thenThrow(new RuntimeException("Simulated exception"));
+
+        // Call the method
+        IndexResponse response = tasksRepository.updateTask(task);
+
+        // Verify and assert
+        assertNull(response);
+    }
+
+    @Test
+    public void givenTaskWithInvalidId_whenUpdatingTask_shouldReturnNotFoundStatus() {
+        Tasks task = createSampleTask();
+        task.setId("invalid-id");
+
+        when(client.index(any(IndexRequest.class))).thenReturn(actionFutureIndex);
+        when(actionFutureIndex.actionGet()).thenReturn(indexResponse);
+        when(indexResponse.status()).thenReturn(RestStatus.NOT_FOUND);
+
+        // Call the method
+        IndexResponse response = tasksRepository.updateTask(task);
+
+        // Verify and assert
+        assertNotNull(response);
+        assertEquals(RestStatus.NOT_FOUND, response.status());
+    }
+
+    @Test
+    public void givenValidTaskId_whenDeletingTask_shouldReturnOkStatus() {
         // Mock the delete response
         when(client.delete(any(DeleteRequest.class))).thenReturn(deleteActionFuture);
         when(deleteActionFuture.actionGet()).thenReturn(deleteResponse);
         when(deleteResponse.status()).thenReturn(RestStatus.OK);
 
         // Call the method
-        RestStatus status = tasksRepository.deleteTask("1");
+        RestStatus status = tasksRepository.deleteTask(TASK_ID);
 
         // Verify and assert
+        assertNotNull(status);
         assertEquals(RestStatus.OK, status);
     }
 
     @Test
-    void testSearchTasks_withDateFilters() throws Exception {
-        Map<String, Object> body = new HashMap<>();
-        body.put("creationDateFrom", "2023-01-01");
-        body.put("creationDateTo", "2023-12-31");
+    public void givenInvalidTaskId_whenDeletingTask_shouldReturnNotFoundStatus() {
+        // Mock the delete response
+        when(client.delete(any(DeleteRequest.class))).thenReturn(deleteActionFuture);
+        when(deleteActionFuture.actionGet()).thenReturn(deleteResponse);
+        when(deleteResponse.status()).thenReturn(RestStatus.NOT_FOUND);
 
+        // Call the method
+        RestStatus status = tasksRepository.deleteTask("invalid-id");
+
+        // Verify and assert
+        assertNotNull(status);
+        assertEquals(RestStatus.NOT_FOUND, status);
+    }
+
+    @Test
+    public void givenNullTaskId_whenDeletingTask_shouldReturnBadRequest() {
+        // Call the method with null ID
+        RestStatus status = tasksRepository.deleteTask(null);
+
+        // Verify and assert
+        assertNotNull(status);
+        assertEquals(RestStatus.BAD_REQUEST, status);
+    }
+
+    @Test
+    public void givenValidTaskId_whenExceptionOccursWhileDeletingTask_shouldReturnBadRequest() {
+        when(client.delete(any(DeleteRequest.class))).thenThrow(new RuntimeException("Simulated exception"));
+
+        // Call the method
+        RestStatus status = tasksRepository.deleteTask(TASK_ID);
+
+        // Verify and assert
+        assertNotNull(status);
+        assertEquals(RestStatus.BAD_REQUEST, status);
+    }
+
+    @Test
+    void givenDateFilters_whenSearchingTasks_shouldReturnMatchingTasks() throws Exception {
+        // Prepare test data
+        Map<String, Object> body = new HashMap<>();
+        body.put(CREATION_DATE_FROM, "2023-01-01");
+        body.put(CREATION_DATE_TO, "2023-12-31");
+
+        // Build the JSON body
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         for (Map.Entry<String, Object> entry : body.entrySet()) {
@@ -249,62 +410,76 @@ public class TasksRepositoryTests extends LuceneTestCase {
         builder.endObject();
         BytesReference bytes = BytesReference.bytes(builder);
 
+        // Mock the search hit
         SearchHit searchHit = new SearchHit(1);
         searchHit.sourceRef(bytes);
 
+        // Mock the search hits
         TotalHits totalHits = new TotalHits(1, TotalHits.Relation.EQUAL_TO);
         SearchHits searchHits = new SearchHits(new SearchHit[]{searchHit}, totalHits, 1.0f);
 
-
+        // Mock the client search response
         when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
         when(searchResponseActionFuture.actionGet()).thenReturn(searchResponse);
         when(searchResponse.getHits()).thenReturn(searchHits);
 
+        // Execute the search
         List<Tasks> result = tasksRepository.searchTasks(body);
 
-        verify(client, times(1)).search(any(SearchRequest.class));
-        assertEquals(1, result.size());
-    }
-    /*@Test
-    void testSearchTasks_withEqualsFilters() throws Exception {
-        Map<String, Object> body = new HashMap<>();
-        Map<String, Object> equals = new HashMap<>();
-        equals.put("statusIs", "completed");
-        equals.put("assigneeIs", "user1");
-        body.put("equals", equals);
-
-        SearchHit[] hits = new SearchHit[]{searchHit};
-        SearchHits searchHits = new SearchHits(hits, new TotalHits(1,TotalHits.Relation.EQUAL_TO), 1.0f);
-
-        when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
-        when(searchResponse.getHits()).thenReturn(searchHits);
-        when(searchHit.getSourceAsMap()).thenReturn(new HashMap<>());
-        when(searchHit.getId()).thenReturn("1");
-
-        List<Tasks> result = tasksRepository.searchTasks(body);
-
+        // Verify the interactions and assertions
         verify(client, times(1)).search(any(SearchRequest.class));
         assertEquals(1, result.size());
     }
 
     @Test
-    void testSearchTasks_withNoFilters() throws Exception {
+    void givenEmptyDateFilters_whenSearchingTasks_shouldReturnAllTasks() throws Exception {
+        // Prepare empty filter data
         Map<String, Object> body = new HashMap<>();
 
-        SearchHit[] hits = new SearchHit[]{searchHit};
-        SearchHits searchHits = new SearchHits(hits, new TotalHits(1,TotalHits.Relation.EQUAL_TO), 1.0f);
+        // Create an empty array for SearchHit
+        SearchHit[] emptyHitsArray = new SearchHit[0];
 
+        // Mock the search hits as an empty result
+        SearchHits searchHits = new SearchHits(emptyHitsArray, new TotalHits(0, TotalHits.Relation.EQUAL_TO), 1.0f);
+
+
+        // Mock the client search response
         when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
+        when(searchResponseActionFuture.actionGet()).thenReturn(searchResponse);
         when(searchResponse.getHits()).thenReturn(searchHits);
-        when(searchHit.getSourceAsMap()).thenReturn(new HashMap<>());
-        when(searchHit.getId()).thenReturn("1");
 
+        // Execute the search
         List<Tasks> result = tasksRepository.searchTasks(body);
 
+        // Verify the interactions and assertions
         verify(client, times(1)).search(any(SearchRequest.class));
-        assertEquals(1, result.size());
-    }*/
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void givenInvalidDateFilters_whenSearchingTasks_shouldReturnEmptyResult() throws Exception {
+        // Prepare invalid date filters
+        Map<String, Object> body = new HashMap<>();
+        body.put(CREATION_DATE_FROM, "invalid-date");
+
+// Create an empty array for SearchHit
+        SearchHit[] emptyHitsArray = new SearchHit[0];
+
+        // Mock the search hits as an empty result
+        SearchHits searchHits = new SearchHits(emptyHitsArray, new TotalHits(0, TotalHits.Relation.EQUAL_TO), 1.0f);
+
+        // Mock the client search response
+        when(client.search(any(SearchRequest.class))).thenReturn(searchResponseActionFuture);
+        when(searchResponseActionFuture.actionGet()).thenReturn(searchResponse);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+
+        // Execute the search
+        List<Tasks> result = tasksRepository.searchTasks(body);
+
+        // Verify the interactions and assertions
+        verify(client, times(1)).search(any(SearchRequest.class));
+        assertEquals(0, result.size());
+    }
 
 
-    //todo create tests for other methods and basic errors
 }
