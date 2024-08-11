@@ -154,6 +154,7 @@ public class TasksServiceTests extends LuceneTestCase {
         assertEquals("1", createdTask.getId());
         verify(tasksRepository, times(1)).createTask(task);
     }
+
     @Test
     void givenValidId_whenGettingTaskById_shouldReturnTask() {
         // Arrange
@@ -196,6 +197,7 @@ public class TasksServiceTests extends LuceneTestCase {
         assertNull(actualTask);
         verify(tasksRepository, times(1)).getTaskById(invalidTaskId);
     }
+
     @Test
     void givenValidId_whenDeletingTask_shouldReturnOkStatus() {
         // Arrange
@@ -260,6 +262,7 @@ public class TasksServiceTests extends LuceneTestCase {
         verify(tasksRepository, times(1)).getTaskById(taskId);
         verify(tasksRepository, times(1)).deleteTask(taskId);
     }
+
     @Test
     void givenNoFilters_whenSearchingTasks_shouldReturnAllTasks() {
         // Arrange
@@ -354,6 +357,7 @@ public class TasksServiceTests extends LuceneTestCase {
 
         return Arrays.asList(task1, task2);
     }
+
     @Test
     void givenNullId_whenPatchingTask_shouldReturnBadRequest() {
         // Arrange
