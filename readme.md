@@ -40,13 +40,15 @@ Each layer is decoupled to ensure a clear separation of concerns, enhancing code
         "title": "Sample Title",
         "description": "Sample Description",
         "status": "PLANNED",
-        "assignee": "JohnDoe"
+        "assignee": "JohnDoe",
+        "securityStandards": "PCI DSS"
       },
       "equals": {
         "title": "Exact Match Title",
         "description": "Exact Match Description",
         "status": "EXECUTED_OK",
-        "assignee": "JaneDoe"
+        "assignee": "JaneDoe",
+        "securityStandards": "PCI DSS"
       }
     }
     ```
@@ -71,6 +73,7 @@ Each layer is decoupled to ensure a clear separation of concerns, enhancing code
 "completionDate": "2024-02-02",
 "plannedDate": "2024-02-01",
 "assignee": "JohnDoe",
+"securityStandards": "PCI DSS",
 "tags": ["exampleTag1", "exampleTag2", "exampleTag3"]
 }
 ```

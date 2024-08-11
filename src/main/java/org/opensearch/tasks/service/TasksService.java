@@ -210,7 +210,8 @@ public class TasksService {
                                 (!contains.containsKey("description") || task.getDescription().contains(contains.get("description").toString())) &&
                                 (!contains.containsKey("status") || task.getStatus().contains(contains.get("status").toString())) &&
                                 (!contains.containsKey("assignee") || task.getAssignee().contains(contains.get("assignee").toString())) &&
-                                (tagsToFilter == null || task.getTags().stream().allMatch(tagsToFilter::contains))
+                                (!contains.containsKey("securityStandards") || task.getSecurityStandards().contains(contains.get("securityStandards").toString())) &&
+                                (tagsToFilter == null || task.getTags().containsAll(tagsToFilter))
                 ).collect(Collectors.toList());
     }
 
@@ -232,6 +233,9 @@ public class TasksService {
         }
         if (newTask.getAssignee() != null) {
             existingTask.setAssignee(newTask.getAssignee());
+        }
+        if (newTask.getSecurityStandards() != null) {
+            existingTask.setSecurityStandards(newTask.getSecurityStandards());
         }
         if (newTask.getCreationDate() != null) {
             existingTask.setCreationDate(newTask.getCreationDate());

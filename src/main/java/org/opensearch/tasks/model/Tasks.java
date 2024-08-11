@@ -20,6 +20,7 @@ public class Tasks {
     private String completionDate;
     private String plannedDate;
     private List<String> tags;
+    private String securityStandards;
 
     public String getId() {
         return id;
@@ -92,6 +93,15 @@ public class Tasks {
     public void setPlannedDate(String plannedDate) {
         this.plannedDate = plannedDate;
     }
+
+    public String getSecurityStandards() {
+        return securityStandards;
+    }
+
+    public void setSecurityStandards(String securityStandards) {
+        this.securityStandards = securityStandards;
+    }
+
     @Override
     public String toString() {
         return "Tasks{" +
@@ -103,6 +113,7 @@ public class Tasks {
                 ", creationDate='" + creationDate + '\'' +
                 ", completionDate='" + completionDate + '\'' +
                 ", plannedDate='" + plannedDate + '\'' +
+                ", securityStandards=" + securityStandards +
                 ", tags=" + tags +
                 '}';
     }

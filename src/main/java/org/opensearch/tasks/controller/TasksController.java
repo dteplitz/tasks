@@ -199,6 +199,7 @@ public class TasksController extends BaseRestHandler {
         task.setCompletionDate((String) map.getOrDefault("completionDate", null));
         task.setPlannedDate((String) map.getOrDefault("plannedDate", null));
         task.setAssignee((String) map.getOrDefault("assignee", null));
+        task.setSecurityStandards((String) map.getOrDefault("securityStandards", null));
         task.setTags((List<String>) map.getOrDefault("tags", null));
         return task;
     }
@@ -217,6 +218,7 @@ public class TasksController extends BaseRestHandler {
                 builder.field("completionDate", task.getCompletionDate());
                 builder.field("plannedDate", task.getPlannedDate());
                 builder.field("assignee", task.getAssignee());
+                builder.field("securityStandards", task.getSecurityStandards());
                 builder.field("tags", task.getTags());
             } else if (object instanceof List) {
                 List<Tasks> tasks = (List<Tasks>) object;
@@ -231,6 +233,7 @@ public class TasksController extends BaseRestHandler {
                     builder.field("completionDate", task.getCompletionDate());
                     builder.field("plannedDate", task.getPlannedDate());
                     builder.field("assignee", task.getAssignee());
+                    builder.field("securityStandards", task.getSecurityStandards());
                     builder.field("tags", task.getTags());
                     builder.endObject();
                 }

@@ -34,7 +34,6 @@ import java.util.Map;
 
 public class TasksRepository {
     private final Client client;
-    private final Gson gson = new Gson();
     private static final Logger log = LogManager.getLogger(TasksRepository.class);
     private static final String INDEX = "tasks";
 
@@ -202,6 +201,7 @@ public class TasksRepository {
         taskMap.put("completionDate", tasks.getCompletionDate());
         taskMap.put("plannedDate", tasks.getPlannedDate());
         taskMap.put("assignee", tasks.getAssignee());
+        taskMap.put("securityStandards", tasks.getSecurityStandards());
         taskMap.put("tags", tasks.getTags());
         return taskMap;
     }
@@ -223,6 +223,7 @@ public class TasksRepository {
         tasks.setCompletionDate((String) sourceAsMap.getOrDefault("completionDate", null));
         tasks.setPlannedDate((String) sourceAsMap.getOrDefault("plannedDate", null));
         tasks.setAssignee((String) sourceAsMap.getOrDefault("assignee", null));
+        tasks.setSecurityStandards((String) sourceAsMap.getOrDefault("securityStandards", null));
         tasks.setTags((List<String>) sourceAsMap.getOrDefault("tags", null));
         return tasks;
     }
@@ -236,13 +237,25 @@ public class TasksRepository {
     private static void addEqualsFilters(Map<String, Object> body, BoolQueryBuilder boolQuery) {
         if (body.containsKey("equals")) {
             Map<String, Object> equals = (Map<String, Object>) body.get("equals");
-            if (equals.containsKey("statusIs")) {
-                boolQuery.must(QueryBuilders.matchQuery("status", equals.get("statusIs")));
-                log.info("Status filter added: {}", equals.get("statusIs"));
+            if (equals.containsKey("title")) {
+                boolQuery.must(QueryBuilders.matchPhraseQuery("title.keyword", equals.get("title").toString()));
+                log.info("Title filter added: {}", equals.get("title"));
             }
-            if (equals.containsKey("assigneeIs")) {
-                boolQuery.must(QueryBuilders.matchQuery("assignee", equals.get("assigneeIs")));
-                log.info("Assignee filter added: {}", equals.get("assigneeIs"));
+            if (equals.containsKey("description")) {
+                boolQuery.must(QueryBuilders.matchPhraseQuery("description.keyword", equals.get("description").toString()));
+                log.info("Description filter added: {}", equals.get("description"));
+            }
+            if (equals.containsKey("status")) {
+                boolQuery.must(QueryBuilders.matchPhraseQuery("status.keyword", equals.get("status").toString()));
+                log.info("Status filter added: {}", equals.get("status"));
+            }
+            if (equals.containsKey("assignee")) {
+                boolQuery.must(QueryBuilders.matchPhraseQuery("assignee.keyword", equals.get("assignee").toString()));
+                log.info("Assignee filter added: {}", equals.get("assignee"));
+            }
+            if (equals.containsKey("securityStandards")) {
+                boolQuery.must(QueryBuilders.matchPhraseQuery("securityStandards.keyword", equals.get("securityStandards").toString()));
+                log.info("SecurityStantards filter added: {}", equals.get("securityStandards"));
             }
         }
     }
